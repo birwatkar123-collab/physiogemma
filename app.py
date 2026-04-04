@@ -1,18 +1,19 @@
 """
-PhysioGemma — AI Physiotherapy Assistant powered by Gemma 4
-============================================================
+PhysioGemma — AI Physiotherapy Assistant powered by Gemma 4 (v2)
+=================================================================
 Kaggle Gemma 4 Good Hackathon | Health & Sciences Track
 
-Natural language patient intake → Evidence-based exercise prescription
-with clinical reasoning, YouTube video demos, and multilingual support.
+Multi-step clinical assessment using SITCAR pain evaluation framework,
+medical/surgical history, and functional assessment before prescribing
+personalized, evidence-based exercise plans.
 
 Run: python app.py
-Demo: https://huggingface.co/spaces/YOUR_USERNAME/physiogemma
 """
 
 import os
+import json
 import gradio as gr
-from gemma_engine import chat_with_patient
+from gemma_engine import process_message
 from exercises import EXERCISES
 
 # ── Theme ────────────────────────────────────────────────────────────────────
@@ -34,13 +35,6 @@ CSS = """
 }
 .exercise-card h4 { color: #0369a1; margin: 0 0 8px 0; }
 .exercise-card p { color: #475569; margin: 4px 0; font-size: 14px; }
-.patient-info-card {
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    border: 1px solid #86efac;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 10px 0;
-}
 .disclaimer {
     background: #fffbeb;
     border: 1px solid #fde68a;
@@ -50,141 +44,195 @@ CSS = """
     font-size: 13px;
     color: #92400e;
 }
-.hero-section {
-    text-align: center;
-    padding: 20px;
-    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
-    border-radius: 16px;
-    margin-bottom: 20px;
+.stage-indicator {
+    display: flex; gap: 8px; justify-content: center;
+    margin: 10px 0 20px 0;
 }
-.video-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 12px;
-    margin-top: 10px;
+.stage-pill {
+    padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
 }
+.stage-active { background: #3b82f6; color: white; }
+.stage-done { background: #10b981; color: white; }
+.stage-pending { background: #e2e8f0; color: #94a3b8; }
 footer { display: none !important; }
 """
 
+# ── Stage indicator HTML ─────────────────────────────────────────────────────
 
-# ── Helper: format prescription as Markdown + HTML ───────────────────────────
+STAGE_LABELS = {
+    "initial": "Pain Description",
+    "sitcar": "SITCAR Evaluation",
+    "medical_history": "Medical History",
+    "functional": "Functional Assessment",
+    "prescription": "Your Exercise Plan",
+}
 
-def format_prescription(result: dict) -> tuple:
-    """Format the prescription result into display components."""
-    if result["type"] == "clarification":
-        return result["message"], "", "", ""
+def _stage_html(current_stage: str) -> str:
+    stages = list(STAGE_LABELS.items())
+    current_idx = next((i for i, (k, _) in enumerate(stages) if k == current_stage), 0)
 
-    if result["type"] == "error":
-        return f"**Error:** {result['message']}", "", "", ""
+    pills = []
+    for i, (key, label) in enumerate(stages):
+        if i < current_idx:
+            cls = "stage-done"
+            icon = "&#10003;"
+        elif i == current_idx:
+            cls = "stage-active"
+            icon = str(i + 1)
+        else:
+            cls = "stage-pending"
+            icon = str(i + 1)
+        pills.append(f'<span class="stage-pill {cls}">{icon}. {label}</span>')
 
-    info = result["patient_info"]
+    return f'<div class="stage-indicator">{"".join(pills)}</div>'
+
+
+# ── Format prescription result ───────────────────────────────────────────────
+
+def _format_prescription_html(result: dict) -> str:
+    """Format exercise cards with video embeds."""
     plan = result["plan"]
-    explanation = result["explanation"]
-
-    # Patient info card
-    condition_name = EXERCISES.get(info["condition"], {}).get("name", info["condition"])
-    comorbidities = ", ".join(info.get("comorbidities", [])) or "None reported"
-    chronicity = "Chronic (3+ months)" if info.get("is_chronic") else "Acute (< 3 months)"
-
-    info_md = f"""### Patient Profile
-| Parameter | Value |
-|-----------|-------|
-| **Condition** | {condition_name} |
-| **Pain Level** | {info['pain_vas']}/10 (VAS) |
-| **Age** | {info['age']} years |
-| **Duration** | {info.get('duration_months', 'N/A')} months ({chronicity}) |
-| **Comorbidities** | {comorbidities} |
-| **Exercise Level** | Level {info['level']} — {plan['label']} |
-| **Goal** | {plan['goal']} |
-"""
-
-    # Exercise cards with video embeds
     exercises_html = ""
+
+    type_icons = {
+        "mobility": "&#128260;", "stretching": "&#129496;",
+        "strengthening": "&#128170;", "stability": "&#9878;",
+        "plyometric": "&#127939;"
+    }
+
     for ex in plan["exercises"]:
         video_id = ex.get("video", "")
         video_embed = ""
         if video_id:
-            video_embed = f"""<iframe width="100%" height="200"
-                src="https://www.youtube-nocookie.com/embed/{video_id}"
-                frameborder="0" allowfullscreen
-                style="border-radius: 8px; margin-top: 8px;"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
-            </iframe>"""
+            video_embed = (
+                f'<iframe width="100%" height="200" '
+                f'src="https://www.youtube-nocookie.com/embed/{video_id}" '
+                f'frameborder="0" allowfullscreen '
+                f'style="border-radius: 8px; margin-top: 8px;" '
+                f'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+                f'gyroscope; picture-in-picture"></iframe>'
+            )
 
-        type_icons = {
-            "mobility": "🔄", "stretching": "🧘", "strengthening": "💪",
-            "stability": "⚖️", "plyometric": "🏃"
-        }
-        icon = type_icons.get(ex.get("type", ""), "🏋️")
+        icon = type_icons.get(ex.get("type", ""), "&#127947;")
+        exercises_html += (
+            f'<div class="exercise-card">'
+            f'<h4>{icon} {ex["name"]}</h4>'
+            f'<p><strong>Sets:</strong> {ex["sets"]} | '
+            f'<strong>Reps:</strong> {ex["reps"]} | '
+            f'<strong>Type:</strong> {ex.get("type", "general").title()}</p>'
+            f'<p>{ex.get("instruction", "")}</p>'
+            f'{video_embed}</div>'
+        )
 
-        exercises_html += f"""
-        <div class="exercise-card">
-            <h4>{icon} {ex['name']}</h4>
-            <p><strong>Sets:</strong> {ex['sets']} | <strong>Reps:</strong> {ex['reps']} | <strong>Type:</strong> {ex.get('type', 'general').title()}</p>
-            <p>{ex.get('instruction', '')}</p>
-            {video_embed}
-        </div>
-        """
+    return exercises_html
 
-    # Clinical reasoning from Gemma 4
-    reasoning_md = f"""### Clinical Reasoning (Gemma 4)
 
-{explanation}
+def _format_patient_profile(info: dict) -> str:
+    """Format patient profile as markdown table."""
+    condition_name = EXERCISES.get(info.get("condition", ""), {}).get("name", info.get("condition", "Unknown"))
+    comorbidities = ", ".join(info.get("comorbidities", [])) or "None"
+    surgeries = ", ".join(info.get("surgical_history", [])) or "None"
+    aggravating = ", ".join(info.get("aggravating_factors", [])) or "Not specified"
+    reducing = ", ".join(info.get("reducing_factors", [])) or "Not specified"
+    limited = ", ".join(info.get("limited_activities", [])) or "Not specified"
 
-<div class="disclaimer">
-<strong>Disclaimer:</strong> This is AI-generated exercise guidance based on clinical guidelines (NICE NG59, ACSM, Boonstra 2014).
-It does not replace professional medical advice. Always consult a qualified physiotherapist for proper diagnosis and treatment.
-</div>
+    plan_label = ""
+    if "level" in info:
+        cond = EXERCISES.get(info.get("condition", ""), {})
+        lvl = cond.get("levels", {}).get(info["level"], {})
+        plan_label = f"Level {info['level']} — {lvl.get('label', '')}"
+
+    return f"""### Clinical Assessment Summary
+
+| Category | Detail |
+|----------|--------|
+| **Condition** | {condition_name} |
+| **Pain Site** | {info.get('site_detail', 'N/A')} |
+| **Intensity (VAS)** | {info.get('intensity_vas', info.get('pain_vas', 'N/A'))}/10 |
+| **Tendency** | {info.get('tendency', 'N/A')} |
+| **Characteristic** | {info.get('characteristic', 'N/A')} |
+| **Duration** | {info.get('duration_months', 'N/A')} months ({'Chronic' if info.get('is_chronic') else 'Acute'}) |
+| **Aggravating** | {aggravating} |
+| **Reducing** | {reducing} |
+| **Age** | {info.get('age', 'N/A')} |
+| **Comorbidities** | {comorbidities} |
+| **Surgical History** | {surgeries} |
+| **Occupation** | {info.get('occupation', 'N/A')} ({info.get('physical_demands', 'N/A')} demands) |
+| **Limited Activities** | {limited} |
+| **Exercise History** | {info.get('exercise_history', 'N/A')} |
+| **Goals** | {info.get('goals', 'N/A')} |
+| **Prescription** | {plan_label} |
 """
 
-    return info_md, exercises_html, reasoning_md, ""
 
+# ── Main chat function ───────────────────────────────────────────────────────
 
-# ── Main processing function ─────────────────────────────────────────────────
-
-def process_input(message: str, history: list) -> tuple:
-    """Process patient message and return formatted prescription."""
+def chat(message: str, history: list, state: dict | None):
+    """Handle chat messages through multi-step assessment."""
     if not message or not message.strip():
-        return "", "", "", "Please describe your pain or condition."
+        return history, state, "", "", "", ""
 
-    result = chat_with_patient(message)
+    if state is None:
+        state = {"stage": "initial", "collected": {}, "conversation": ""}
 
-    if result["type"] == "clarification":
-        return "", "", "", result["message"]
+    # Add user message to chat
+    history = history + [{"role": "user", "content": message}]
 
-    if result["type"] == "error":
-        return "", "", "", f"**Error:** {result['message']}"
+    # Process through engine
+    result, state = process_message(message, history, state)
 
-    info_md, exercises_html, reasoning_md, _ = format_prescription(result)
-    return info_md, exercises_html, reasoning_md, ""
+    # Check if result is a prescription (dict) or text response (str)
+    if isinstance(result, dict) and "plan" in result:
+        # Prescription received — format all outputs
+        explanation = result.get("explanation", "")
+        patient_info = result.get("patient_info", {})
+        exercises_html = _format_prescription_html(result)
+        profile_md = _format_patient_profile(patient_info)
+
+        # Add summary to chat
+        bot_msg = ("**Assessment complete! Your personalized exercise plan is ready.**\n\n"
+                   "Scroll down to see your prescription with video demonstrations, "
+                   "clinical reasoning, and safety guidelines.\n\n"
+                   "Feel free to ask any follow-up questions!")
+        history = history + [{"role": "assistant", "content": bot_msg}]
+
+        stage_html = _stage_html("prescription")
+
+        return history, state, stage_html, profile_md, exercises_html, explanation
+    else:
+        # Conversational response
+        bot_msg = result if isinstance(result, str) else str(result)
+        history = history + [{"role": "assistant", "content": bot_msg}]
+
+        stage_html = _stage_html(state.get("stage", "initial"))
+
+        return history, state, stage_html, "", "", ""
 
 
-# ── Example inputs ───────────────────────────────────────────────────────────
-
-EXAMPLES = [
-    "My lower back has been hurting for 3 months. Pain is about 6 out of 10. I'm 45 years old.",
-    "I'm 62 years old with knee pain and diabetes. It's been bothering me for 6 months. Pain is 7/10.",
-    "मेरी गर्दन में 2 हफ्ते से दर्द है, दर्द 5/10 है, उम्र 35 साल",
-    "I'm 28, my shoulder has been frozen for 4 months. Pain is about 8 out of 10. Very stiff.",
-    "Neck pain for 1 week, pain level 4, age 50, I have hypertension and high cholesterol",
-    "मेरे घुटने में दर्द है, 55 साल, दर्द 6/10, diabetes और BP है, 1 साल से है",
-]
+def reset():
+    """Reset the conversation."""
+    return [], None, _stage_html("initial"), "", "", "", ""
 
 
-# ── Gradio UI ────────────────────────────────────────────────────────────────
+# ── Build Gradio app ─────────────────────────────────────────────────────────
 
 def build_app():
     with gr.Blocks(theme=THEME, css=CSS, title="PhysioGemma — AI Physiotherapy Assistant") as app:
 
         # Hero
         gr.HTML("""
-        <div class="hero-section">
-            <h1 style="font-size: 2.2em; margin: 0; color: #1e40af;">🩺 PhysioGemma</h1>
+        <div style="text-align: center; padding: 20px;
+                    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+                    border-radius: 16px; margin-bottom: 10px;">
+            <h1 style="font-size: 2.2em; margin: 0; color: #1e40af;">
+                &#129658; PhysioGemma
+            </h1>
             <p style="font-size: 1.1em; color: #475569; margin: 8px 0 0 0;">
                 AI Physiotherapy Assistant powered by <strong>Gemma 4</strong>
             </p>
-            <p style="font-size: 0.9em; color: #64748b; margin: 4px 0 0 0;">
-                Evidence-based exercise prescriptions • Clinical reasoning • English & Hindi
+            <p style="font-size: 0.85em; color: #64748b; margin: 4px 0 0 0;">
+                SITCAR Pain Evaluation &bull; Evidence-Based Prescriptions &bull;
+                Clinical Reasoning &bull; English &amp; Hindi
             </p>
         </div>
         """)
@@ -192,68 +240,95 @@ def build_app():
         # How it works
         with gr.Accordion("How does PhysioGemma work?", open=False):
             gr.Markdown("""
-**PhysioGemma** uses Google's **Gemma 4** open model with native function calling to:
+**PhysioGemma** conducts a **4-step clinical assessment** like a real physiotherapist:
 
-1. **Understand** your pain description in natural language (English or Hindi)
-2. **Extract** clinical parameters (condition, pain level, age, duration, comorbidities)
-3. **Determine** the right exercise level using evidence-based cutoffs (Boonstra 2014, ACSM, ADA)
-4. **Prescribe** a personalized exercise plan with video demonstrations
-5. **Explain** the clinical reasoning behind every recommendation
+1. **Pain Description** — Tell us about your pain in your own words
+2. **SITCAR Evaluation** — We assess Site, Intensity, Tendency, Characteristic, Aggravating & Reducing factors
+3. **Medical History** — Past conditions, surgeries, medications
+4. **Functional Assessment** — Occupation, daily limitations, goals
 
-**Supported conditions:** Lower Back Pain, Knee Pain/OA, Neck Pain, Frozen Shoulder
+Then **Gemma 4** synthesizes everything into an evidence-based exercise prescription with full clinical reasoning.
 
-**Clinical references:** NICE NG59, Cochrane Reviews, ACSM Guidelines, Boonstra 2014 VAS cutoffs
+**Clinical references:** Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews
             """)
 
-        # Input section
+        # Stage indicator
+        stage_display = gr.HTML(value=_stage_html("initial"))
+
+        # State
+        state = gr.State(None)
+
+        # Chat
+        chatbot = gr.Chatbot(
+            label="PhysioGemma Consultation",
+            height=400,
+            type="messages",
+            placeholder="Describe your pain or condition to begin your assessment...",
+            avatar_images=(None, "https://em-content.zobj.net/source/twitter/376/stethoscope_1fa7a.png"),
+        )
+
         with gr.Row():
-            with gr.Column(scale=3):
-                user_input = gr.Textbox(
-                    label="Describe your pain or condition",
-                    placeholder="Example: My lower back has been hurting for 3 months. Pain is 6/10. I'm 45 years old with diabetes.",
-                    lines=3,
-                    max_lines=5,
-                )
-            with gr.Column(scale=1):
-                submit_btn = gr.Button("Get Exercise Plan 🏋️", variant="primary", size="lg")
+            msg = gr.Textbox(
+                label="Your message",
+                placeholder="Example: My lower back has been hurting for 3 months, pain is 6/10, I'm 45...",
+                lines=2, scale=4,
+            )
+            with gr.Column(scale=1, min_width=120):
+                send_btn = gr.Button("Send", variant="primary", size="lg")
+                reset_btn = gr.Button("New Assessment", variant="secondary", size="sm")
 
         # Examples
         gr.Examples(
-            examples=EXAMPLES,
-            inputs=user_input,
-            label="Try these examples (click to load):",
+            examples=[
+                "My lower back has been hurting for 3 months. Pain is about 6 out of 10. I'm 45 years old.",
+                "I'm 62, knee pain for 6 months, getting worse lately",
+                "मेरी गर्दन में 2 हफ्ते से दर्द है, बहुत तेज़ दर्द है",
+                "Shoulder is frozen, can't raise my arm. 55 years old, pain started 4 months ago",
+            ],
+            inputs=msg,
+            label="Try these examples:",
         )
 
-        # Status/clarification
-        status_output = gr.Markdown(label="Status", visible=True)
+        # Results section (hidden until prescription)
+        gr.HTML("<hr style='margin: 20px 0; border-color: #e2e8f0;'>")
 
-        # Results
         with gr.Row():
             with gr.Column(scale=1):
-                patient_info = gr.Markdown(label="Patient Profile")
+                profile_display = gr.Markdown(label="Clinical Assessment Summary")
             with gr.Column(scale=1):
-                clinical_reasoning = gr.Markdown(label="Clinical Reasoning")
+                reasoning_display = gr.Markdown(label="Clinical Reasoning")
 
         exercises_display = gr.HTML(label="Exercise Prescription")
 
-        # Wire up
-        submit_btn.click(
-            fn=process_input,
-            inputs=[user_input, gr.State([])],
-            outputs=[patient_info, exercises_display, clinical_reasoning, status_output],
-        )
-        user_input.submit(
-            fn=process_input,
-            inputs=[user_input, gr.State([])],
-            outputs=[patient_info, exercises_display, clinical_reasoning, status_output],
+        # Wire up events
+        outputs = [chatbot, state, stage_display, profile_display, exercises_display, reasoning_display]
+
+        send_btn.click(
+            fn=chat,
+            inputs=[msg, chatbot, state],
+            outputs=outputs,
+        ).then(lambda: "", outputs=msg)
+
+        msg.submit(
+            fn=chat,
+            inputs=[msg, chatbot, state],
+            outputs=outputs,
+        ).then(lambda: "", outputs=msg)
+
+        reset_btn.click(
+            fn=reset,
+            outputs=[chatbot, state, stage_display, profile_display, exercises_display, reasoning_display, msg],
         )
 
         # Footer
         gr.HTML("""
-        <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px;">
-            <p><strong>PhysioGemma</strong> — Built for the Gemma 4 Good Hackathon (Health & Sciences Track)</p>
-            <p>Powered by Gemma 4 26B • Evidence-based clinical guidelines • Not medical advice</p>
-            <p>Created by Gaurav Birwatkar • CC-BY 4.0 License</p>
+        <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;
+                    border-top: 1px solid #e2e8f0; margin-top: 30px;">
+            <p><strong>PhysioGemma</strong> &mdash; Built for the Gemma 4 Good Hackathon
+               (Health &amp; Sciences Track)</p>
+            <p>SITCAR Assessment &bull; Gemma 4 26B &bull; Evidence-based guidelines &bull;
+               Not medical advice</p>
+            <p>Created by Gaurav Birwatkar &bull; CC-BY 4.0 License</p>
         </div>
         """)
 

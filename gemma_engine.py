@@ -1,14 +1,21 @@
 """
-gemma_engine.py — Gemma 4 powered physiotherapy reasoning engine
-=================================================================
-Uses Google AI Studio API (free tier) with Gemma 4 for:
-  1. Natural language patient intake → structured JSON extraction
-  2. Evidence-based exercise level assignment
-  3. Exercise prescription with clinical reasoning
-  4. Multilingual patient communication (English / Hindi)
+gemma_engine.py — Gemma 4 powered physiotherapy reasoning engine (v2)
+======================================================================
+Multi-step clinical assessment using SITCAR pain evaluation framework:
+  S = Site of pain
+  I = Intensity of pain (VAS 0-10)
+  T = Tendency (getting worse / stable / improving)
+  C = Characteristic (sharp / dull / burning / aching / throbbing / shooting)
+  A = Aggravating factors
+  R = Reducing factors
 
-References:
-  - Boonstra 2014, NICE NG59, ACSM, ADA guidelines
+Plus: medical/surgical history, functional assessment, occupation.
+
+Uses Google AI Studio API (free tier) with Gemma 4 for:
+  1. Guided multi-turn clinical conversation
+  2. SITCAR pain evaluation extraction
+  3. Evidence-based exercise prescription with clinical reasoning
+  4. Multilingual patient communication (English / Hindi)
 """
 
 import os
@@ -24,260 +31,571 @@ def get_client():
     """Get Google GenAI client with API key."""
     api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
-        raise ValueError("GOOGLE_API_KEY environment variable not set. Get one free at https://aistudio.google.com/apikey")
+        raise ValueError(
+            "GOOGLE_API_KEY environment variable not set. "
+            "Get one free at https://aistudio.google.com/apikey"
+        )
     return genai.Client(api_key=api_key)
 
 
-MODEL_ID = "gemma-4-26b-a4b-it"  # Gemma 4 26B MoE via Google AI Studio
+MODEL_ID = "gemma-4-26b-a4b-it"
 
+# ── Assessment stages ────────────────────────────────────────────────────────
+
+STAGES = [
+    "initial",        # Patient's first message
+    "sitcar",         # SITCAR pain evaluation follow-up
+    "medical_history", # Past medical/surgical history
+    "functional",     # Functional & occupation assessment
+    "prescription",   # Final prescription
+]
 
 # ── System prompt ────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are PhysioGemma, an AI physiotherapy assistant built to help patients
-understand their condition and receive evidence-based exercise prescriptions.
+SYSTEM_PROMPT = """You are PhysioGemma, an AI physiotherapy assistant that conducts thorough
+clinical assessments before prescribing exercises. You behave like a real physiotherapist
+conducting a first consultation.
 
-Your role:
-1. Extract clinical information from patient descriptions (condition, pain level, age, duration, comorbidities)
-2. Provide evidence-based exercise prescriptions using established clinical guidelines
-3. Explain the reasoning behind each prescription in simple, compassionate language
-4. Communicate in the patient's preferred language (English or Hindi)
+You follow the SITCAR framework for pain evaluation:
+  S = Site (exact location, radiation pattern)
+  I = Intensity (VAS 0-10)
+  T = Tendency (getting worse, stable, or improving over time)
+  C = Characteristic (sharp, dull, burning, aching, throbbing, shooting, stiffness)
+  A = Aggravating factors (what makes pain worse)
+  R = Reducing factors (what helps relieve pain)
 
-Clinical knowledge you apply:
-- Boonstra 2014: VAS pain cutoffs for exercise intensity levels
-- NICE NG59: Low back pain management guidelines
-- ACSM: Exercise guidelines for older adults and those with comorbidities
-- ADA: Comorbidity-adjusted exercise modifications
-- Cochrane Reviews: Evidence for knee OA, neck pain, frozen shoulder interventions
+You also gather:
+  - Past medical history (chronic conditions, medications)
+  - Surgical history (especially musculoskeletal surgeries)
+  - Functional limitations (daily activities affected)
+  - Occupation and physical demands
+  - Previous physiotherapy or exercise experience
 
-Exercise level assignment (Boonstra 2014):
-- Level 1 (VAS 7.5-10): Acute/severe - gentle mobility and pain relief
-- Level 2 (VAS 5.0-7.4): Moderate - stability and gentle strengthening
-- Level 3 (VAS 3.5-4.9): Mild - core/functional strengthening
-- Level 4 (VAS 1.0-3.4): Low pain - advanced strengthening
-- Level 5 (VAS 0-0.9): Minimal - performance and prevention
+Clinical evidence you apply:
+  - Boonstra 2014: VAS cutoffs for exercise intensity levels
+  - NICE NG59: Low back pain management
+  - ACSM: Age-adjusted exercise guidelines
+  - ADA: Comorbidity-adjusted modifications
+  - Cochrane Reviews: Knee OA, neck pain, frozen shoulder
 
-Modifiers:
-- Age >= 65: drop one level (ACSM)
-- Age 50-64 with 2+ comorbidities: drop one level
-- 3+ comorbidities: drop one additional level (ADA)
-- Chronic (>3 months) with low pain: can advance one level
-- Acute with moderate pain: be more conservative (drop one level)
-- Level 5 restricted to patients under 50
-
-Supported conditions: Lower Back Pain, Knee Pain/OA, Neck Pain, Frozen Shoulder
-
-IMPORTANT: Always provide a clinical disclaimer that this is guidance only and patients should
-consult a qualified physiotherapist for proper diagnosis and treatment."""
+IMPORTANT RULES:
+1. Ask questions conversationally, like a caring physiotherapist
+2. Ask 3-4 questions at a time, not all at once
+3. Adapt your language to match the patient (Hindi if they write in Hindi)
+4. Never diagnose - you provide exercise guidance only
+5. Always include clinical disclaimer in final prescription
+6. If patient mentions red flags (sudden weakness, bladder issues, unexplained weight loss,
+   fever with pain, trauma), advise immediate medical consultation."""
 
 
-# ── Core engine functions ────────────────────────────────────────────────────
+# ── Extraction prompts for each stage ────────────────────────────────────────
 
-def extract_patient_info(description: str) -> dict | None:
-    """
-    Use Gemma 4 to extract structured clinical parameters from natural language.
-    Returns dict with condition, pain_vas, age, duration_months, comorbidities, language.
-    """
+INITIAL_EXTRACTION_PROMPT = """Analyze this patient's first message and extract what you can.
+
+Patient says: "{message}"
+
+Return ONLY a JSON object with these fields (use null for anything not mentioned):
+{{
+  "condition": "LBP or KNEE_OA or NECK or FROZEN_SHOULDER or null",
+  "pain_site_detail": "specific location description or null",
+  "pain_vas": number or null,
+  "age": number or null,
+  "duration_months": number or null,
+  "language": "hindi" or "english",
+  "red_flags": ["list of any red flag symptoms"] or []
+}}
+
+Condition mapping:
+- lower back / lumbar / back pain = LBP
+- knee / osteoarthritis / joint stiffness in knee = KNEE_OA
+- neck / cervical / stiff neck = NECK
+- shoulder / frozen shoulder / shoulder stiffness = FROZEN_SHOULDER"""
+
+
+SITCAR_EXTRACTION_PROMPT = """Extract SITCAR pain evaluation details from the conversation.
+
+Conversation so far:
+{conversation}
+
+Return ONLY a JSON object:
+{{
+  "site_detail": "exact pain location and radiation pattern",
+  "intensity_vas": number (0-10),
+  "tendency": "worsening" or "stable" or "improving",
+  "characteristic": "sharp" or "dull" or "burning" or "aching" or "throbbing" or "shooting" or "stiffness" or "mixed",
+  "aggravating_factors": ["list of things that make pain worse"],
+  "reducing_factors": ["list of things that help"],
+  "duration_months": number,
+  "is_constant": true or false
+}}
+
+Use null for any field not yet discussed."""
+
+
+MEDICAL_EXTRACTION_PROMPT = """Extract medical and surgical history from the conversation.
+
+Conversation so far:
+{conversation}
+
+Return ONLY a JSON object:
+{{
+  "age": number,
+  "comorbidities": ["list: diabetes, hypertension, heart disease, obesity, etc."],
+  "surgical_history": ["list of past surgeries, especially musculoskeletal"],
+  "medications": ["current medications"],
+  "previous_physio": true or false or null,
+  "allergies": ["list"] or []
+}}
+
+Use null for any field not discussed."""
+
+
+FUNCTIONAL_EXTRACTION_PROMPT = """Extract functional assessment from the conversation.
+
+Conversation so far:
+{conversation}
+
+Return ONLY a JSON object:
+{{
+  "occupation": "description of job/daily role",
+  "physical_demands": "sedentary" or "light" or "moderate" or "heavy",
+  "limited_activities": ["list of activities affected by pain"],
+  "exercise_history": "none" or "occasional" or "regular" or "athletic",
+  "goals": "what the patient wants to achieve"
+}}
+
+Use null for any field not discussed."""
+
+
+# ── Stage question generators ────────────────────────────────────────────────
+
+def _generate_sitcar_questions(initial_info: dict) -> str:
+    """Generate SITCAR follow-up questions based on initial info."""
     client = get_client()
+    known = json.dumps(initial_info, indent=2)
 
-    prompt = f"""Extract clinical parameters from this patient description as JSON.
+    prompt = f"""Based on this initial information from the patient:
+{known}
 
-Patient says: "{description}"
+Generate SITCAR follow-up questions. Ask about the parameters we DON'T have yet from:
+S - Site: Exact location? Does pain radiate anywhere?
+I - Intensity: Pain level 0-10? (skip if already known)
+T - Tendency: Is pain getting worse, staying same, or improving over time?
+C - Characteristic: Is the pain sharp, dull, burning, aching, shooting?
+A - Aggravating: What activities or positions make it worse?
+R - Reducing: What helps? Rest, heat, ice, medication, position?
+
+Also ask about duration if not known.
 
 Rules:
-- condition must be one of: LBP, KNEE_OA, NECK, FROZEN_SHOULDER
-  (LBP = lower back pain, KNEE_OA = knee pain/osteoarthritis, NECK = neck pain/stiffness, FROZEN_SHOULDER = shoulder pain/frozen shoulder)
-- pain_vas: pain intensity 0-10. If not mentioned, use -1.
-- age: patient age in years. If not mentioned, use 40.
-- duration_months: how long they've had pain in months. If "weeks" convert to fraction. If not mentioned, use 1.
-- comorbidities: list of conditions like diabetes, hypertension, obesity, heart disease. Empty list if none.
-- language: "hindi" if patient wrote in Hindi/Devanagari, otherwise "english"
-
-Return ONLY a JSON object, no other text:
-{{"condition": "...", "pain_vas": number, "age": number, "duration_months": number, "comorbidities": [...], "language": "..."}}"""
+- Ask 3-4 questions maximum (skip what we already know)
+- Be warm and conversational like a real physiotherapist
+- Match the patient's language ({initial_info.get('language', 'english')})
+- Number each question for clarity
+- Start with a brief acknowledgment of their pain"""
 
     response = client.models.generate_content(
-        model=MODEL_ID,
-        contents=prompt,
+        model=MODEL_ID, contents=prompt,
         config={"system_instruction": SYSTEM_PROMPT}
     )
-
-    patient_info = _parse_json(response.text)
-
-    if not patient_info or "condition" not in patient_info:
-        return None
-
-    # Validate condition
-    valid_conditions = {"LBP", "KNEE_OA", "NECK", "FROZEN_SHOULDER"}
-    if patient_info["condition"] not in valid_conditions:
-        return None
-
-    # Check if pain was not mentioned (need to ask)
-    if patient_info.get("pain_vas", -1) < 0:
-        return None
-
-    # Set defaults
-    patient_info.setdefault("age", 40)
-    patient_info.setdefault("duration_months", 1)
-    patient_info.setdefault("comorbidities", [])
-    patient_info.setdefault("language", "english")
-
-    # Calculate level using evidence-based logic
-    is_chronic = patient_info.get("duration_months", 1) >= 3
-    level = determine_level(
-        pain_vas=float(patient_info["pain_vas"]),
-        age=int(patient_info["age"]),
-        is_chronic=is_chronic,
-        comorbidity_count=len(patient_info.get("comorbidities", []))
-    )
-    patient_info["level"] = level
-    patient_info["is_chronic"] = is_chronic
-
-    return patient_info
+    return response.text
 
 
-def generate_prescription(patient_info: dict) -> dict:
-    """Generate exercise prescription with Gemma 4 clinical reasoning."""
-    plan = get_exercise_plan(patient_info["condition"], patient_info["level"])
-    if "error" in plan:
-        return plan
-
+def _generate_medical_questions(collected: dict) -> str:
+    """Generate medical history questions."""
     client = get_client()
-    lang = patient_info.get("language", "english")
-    chronicity = "Chronic" if patient_info.get("is_chronic") else "Acute"
-    comorbidities_str = ", ".join(patient_info.get("comorbidities", [])) or "None reported"
+    lang = collected.get("language", "english")
+
+    prompt = f"""Now ask the patient about their medical and surgical history.
+We already know about their pain from SITCAR evaluation.
+
+Ask about (3-4 questions max):
+1. Age (if not already known)
+2. Any chronic conditions (diabetes, blood pressure, heart problems, thyroid, etc.)
+3. Any past surgeries (especially related to spine, joints, or muscles)
+4. Current medications they take regularly
+
+Language: {'Hindi (Devanagari)' if lang == 'hindi' else 'English'}
+Be warm, reassuring. Explain why you're asking (to ensure safe exercises)."""
+
+    response = client.models.generate_content(
+        model=MODEL_ID, contents=prompt,
+        config={"system_instruction": SYSTEM_PROMPT}
+    )
+    return response.text
+
+
+def _generate_functional_questions(collected: dict) -> str:
+    """Generate functional assessment questions."""
+    client = get_client()
+    lang = collected.get("language", "english")
+    condition = collected.get("condition", "pain")
+
+    prompt = f"""Final assessment step. Ask the patient about their daily function and goals.
+Their condition: {condition}
+
+Ask about (3-4 questions max):
+1. What is their occupation / daily routine? (desk job, manual work, homemaker, retired)
+2. Which daily activities are most affected by the pain?
+3. Do they currently exercise or have they done physiotherapy before?
+4. What is their main goal? (pain relief, return to work, return to sport, daily function)
+
+Language: {'Hindi (Devanagari)' if lang == 'hindi' else 'English'}
+Almost done — be encouraging. Tell them you have almost all the information needed."""
+
+    response = client.models.generate_content(
+        model=MODEL_ID, contents=prompt,
+        config={"system_instruction": SYSTEM_PROMPT}
+    )
+    return response.text
+
+
+# ── Prescription generator with full clinical context ────────────────────────
+
+def _generate_full_prescription(collected: dict) -> dict:
+    """Generate prescription using all collected clinical data."""
+
+    # Determine exercise level
+    pain_vas = collected.get("intensity_vas") or collected.get("pain_vas") or 5.0
+    age = collected.get("age") or 40
+    duration = collected.get("duration_months") or 1
+    is_chronic = duration >= 3
+    comorbidities = collected.get("comorbidities") or []
+    surgical_history = collected.get("surgical_history") or []
+    tendency = collected.get("tendency", "stable")
+    characteristic = collected.get("characteristic", "aching")
+    condition = collected.get("condition", "LBP")
+
+    # Base level from Boonstra
+    level = determine_level(
+        pain_vas=float(pain_vas),
+        age=int(age),
+        is_chronic=is_chronic,
+        comorbidity_count=len(comorbidities)
+    )
+
+    # Additional modifiers from SITCAR
+    # Worsening tendency: be more conservative
+    if tendency == "worsening":
+        level = max(level - 1, 1)
+
+    # Sharp/shooting pain: be more conservative (possible nerve involvement)
+    if characteristic in ("sharp", "shooting"):
+        level = max(level - 1, 1)
+
+    # Relevant surgical history: be more conservative
+    spine_surgery = any(
+        kw in s.lower() for s in surgical_history
+        for kw in ["spine", "disc", "laminectomy", "fusion", "back", "knee replacement",
+                    "shoulder", "rotator", "acl", "meniscus"]
+    )
+    if spine_surgery:
+        level = max(level - 1, 1)
+
+    # Get exercise plan
+    plan = get_exercise_plan(condition, level)
+    if "error" in plan:
+        return {"error": plan["error"]}
+
+    # Build comprehensive context for Gemma 4 reasoning
+    client = get_client()
+    lang = collected.get("language", "english")
     lang_instruction = "in Hindi (Devanagari script)" if lang == "hindi" else "in English"
+
     exercises_json = json.dumps(
-        [{"name": ex["name"], "sets": ex["sets"], "reps": ex["reps"], "type": ex["type"]} for ex in plan["exercises"]],
+        [{"name": ex["name"], "sets": ex["sets"], "reps": ex["reps"],
+          "type": ex["type"], "instruction": ex.get("instruction", "")}
+         for ex in plan["exercises"]],
         indent=2
     )
 
-    prompt = f"""Based on these clinical parameters, explain this exercise prescription to the patient.
+    aggravating = ", ".join(collected.get("aggravating_factors", [])) or "Not specified"
+    reducing = ", ".join(collected.get("reducing_factors", [])) or "Not specified"
+    limited = ", ".join(collected.get("limited_activities", [])) or "Not specified"
+    surgeries = ", ".join(surgical_history) or "None"
+    meds = ", ".join(collected.get("medications", [])) or "None"
+    comorbidities_str = ", ".join(comorbidities) or "None"
+    chronicity = "Chronic" if is_chronic else "Acute"
+    occupation = collected.get("occupation", "Not specified")
+    physical_demands = collected.get("physical_demands", "unknown")
+    exercise_history = collected.get("exercise_history", "unknown")
+    goals = collected.get("goals", "Pain relief and improved function")
 
-Patient Profile:
-- Condition: {plan['condition']}
-- Pain Level: {patient_info['pain_vas']}/10 (VAS)
-- Age: {patient_info['age']} years
-- Duration: {patient_info.get('duration_months', 'unknown')} months ({chronicity})
+    prompt = f"""You completed a full physiotherapy assessment. Now provide the prescription and clinical reasoning.
+
+=== COMPLETE CLINICAL PROFILE ===
+
+SITCAR Pain Evaluation:
+- Site: {collected.get('site_detail', condition)} ({plan['condition']})
+- Intensity: {pain_vas}/10 (VAS)
+- Tendency: {tendency}
+- Characteristic: {characteristic}
+- Aggravating factors: {aggravating}
+- Reducing factors: {reducing}
+- Duration: {duration} months ({chronicity})
+- Constant: {collected.get('is_constant', 'unknown')}
+
+Medical History:
+- Age: {age} years
 - Comorbidities: {comorbidities_str}
-- Assigned Level: {plan['level']} - {plan['label']}
-- Goal: {plan['goal']}
+- Surgical history: {surgeries}
+- Medications: {meds}
+- Previous physiotherapy: {collected.get('previous_physio', 'unknown')}
 
-Prescribed Exercises:
+Functional Assessment:
+- Occupation: {occupation} ({physical_demands} demands)
+- Limited activities: {limited}
+- Exercise history: {exercise_history}
+- Patient goals: {goals}
+
+=== PRESCRIPTION ===
+- Level: {level} — {plan['label']}
+- Goal: {plan['goal']}
+- Exercises:
 {exercises_json}
 
-Provide your response {lang_instruction} with:
-1. A warm, reassuring greeting
-2. Brief explanation of their condition and why this exercise level was chosen (cite Boonstra 2014 VAS cutoffs and any applicable ACSM/ADA modifiers)
-3. For each exercise: one sentence on why it helps their specific condition
-4. Safety tips and when to stop
-5. Encouragement and expected timeline for improvement
-6. Clinical disclaimer
+=== MODIFIERS APPLIED ===
+- Boonstra 2014 VAS cutoff: VAS {pain_vas} -> base level
+- Age modifier (ACSM): {'Applied (-1)' if age >= 65 else 'Not needed'}
+- Comorbidity modifier (ADA): {'Applied (-1)' if len(comorbidities) >= 3 else ('Applied (-1) age 50-64 with 2+ comorbidities' if age >= 50 and len(comorbidities) >= 2 else 'Not needed')}
+- Tendency modifier: {'Applied (-1) - pain worsening' if tendency == 'worsening' else 'Not needed'}
+- Pain character modifier: {'Applied (-1) - sharp/shooting suggests neural involvement' if characteristic in ('sharp', 'shooting') else 'Not needed'}
+- Surgical history modifier: {'Applied (-1) - post-surgical caution' if spine_surgery else 'Not needed'}
+- Chronicity modifier: {'Applied (+1) - chronic with lower pain can progress' if is_chronic and pain_vas < 5 else 'Not needed'}
 
-Keep it conversational and compassionate — this is a patient, not a medical professional."""
+Provide your response {lang_instruction} with:
+
+1. **Summary of findings** from the assessment (2-3 sentences)
+2. **Clinical reasoning** — explain WHY this exercise level was chosen, citing each modifier applied
+3. **For each exercise**: one line on why it specifically helps this patient's profile
+4. **Safety precautions** tailored to their specific profile:
+   - Based on surgical history: what to avoid
+   - Based on aggravating factors: modifications
+   - Based on medications/comorbidities: monitoring needed
+   - Based on pain characteristic: warning signs
+5. **Activity modifications** for their occupation and daily tasks
+6. **Progression criteria** — when they can move to the next level
+7. **Home advice** based on reducing factors
+8. **Encouragement** with realistic timeline
+9. **When to seek immediate help** (red flags)
+10. **Clinical disclaimer**
+
+Be thorough but compassionate. This should read like a professional physiotherapy report written for the patient."""
 
     response = client.models.generate_content(
-        model=MODEL_ID,
-        contents=prompt,
+        model=MODEL_ID, contents=prompt,
         config={"system_instruction": SYSTEM_PROMPT}
     )
 
     explanation = response.text if response.text else "Unable to generate explanation."
 
+    collected["level"] = level
+    collected["is_chronic"] = is_chronic
+
     return {
-        "patient_info": patient_info,
+        "patient_info": collected,
         "plan": plan,
         "explanation": explanation,
+        "modifiers_applied": {
+            "boonstra_vas": f"VAS {pain_vas}",
+            "age_acsm": age >= 65,
+            "comorbidity_ada": len(comorbidities) >= 3 or (age >= 50 and len(comorbidities) >= 2),
+            "tendency_worsening": tendency == "worsening",
+            "sharp_shooting": characteristic in ("sharp", "shooting"),
+            "post_surgical": spine_surgery,
+        }
     }
 
 
-def chat_with_patient(message: str, history: list = None) -> dict:
+# ── Main multi-step chat function ────────────────────────────────────────────
+
+def process_message(message: str, history: list, state: dict) -> tuple:
     """
-    Main entry point: patient sends a message, gets back a complete prescription.
-    Handles the full flow: extract → determine level → prescribe → explain.
+    Process a message in the multi-step assessment flow.
+    Returns: (bot_response, updated_state)
+
+    State tracks:
+      - stage: current assessment stage
+      - collected: all extracted clinical data
+      - conversation: full conversation text
     """
-    if history is None:
-        history = []
+    if not state:
+        state = {"stage": "initial", "collected": {}, "conversation": ""}
+
+    stage = state["stage"]
+    state["conversation"] += f"\nPatient: {message}\n"
 
     try:
-        # Step 1: Extract patient info using Gemma 4
-        patient_info = extract_patient_info(message)
+        client = get_client()
 
-        if not patient_info:
-            return {
-                "type": "clarification",
-                "message": _get_clarification(message),
-            }
+        # ── STAGE: Initial ───────────────────────────────────────────────
+        if stage == "initial":
+            # Extract what we can from first message
+            prompt = INITIAL_EXTRACTION_PROMPT.format(message=message)
+            response = client.models.generate_content(
+                model=MODEL_ID, contents=prompt,
+                config={"system_instruction": SYSTEM_PROMPT}
+            )
+            initial_info = _parse_json(response.text) or {}
+            state["collected"].update({k: v for k, v in initial_info.items() if v is not None})
 
-        # Step 2: Generate prescription with clinical reasoning
-        result = generate_prescription(patient_info)
+            # Check for red flags
+            red_flags = initial_info.get("red_flags", [])
+            if red_flags:
+                warning = ("**Important:** You mentioned symptoms that may need immediate "
+                           "medical attention. Please consult a doctor or visit an emergency "
+                           "room for: " + ", ".join(red_flags))
+                state["stage"] = "initial"
+                return warning, state
 
-        if "error" in result:
-            return {"type": "error", "message": result["error"]}
+            # Check if we have enough to identify condition
+            if not state["collected"].get("condition"):
+                # Ask for basic info
+                bot_reply = _generate_initial_clarification(message, initial_info.get("language", "english"))
+                state["conversation"] += f"PhysioGemma: {bot_reply}\n"
+                return bot_reply, state
 
-        return {
-            "type": "prescription",
-            **result,
-        }
+            # Move to SITCAR
+            state["stage"] = "sitcar"
+            bot_reply = _generate_sitcar_questions(state["collected"])
+            state["conversation"] += f"PhysioGemma: {bot_reply}\n"
+            return bot_reply, state
+
+        # ── STAGE: SITCAR ────────────────────────────────────────────────
+        elif stage == "sitcar":
+            prompt = SITCAR_EXTRACTION_PROMPT.format(conversation=state["conversation"])
+            response = client.models.generate_content(
+                model=MODEL_ID, contents=prompt,
+                config={"system_instruction": SYSTEM_PROMPT}
+            )
+            sitcar_info = _parse_json(response.text) or {}
+            state["collected"].update({k: v for k, v in sitcar_info.items() if v is not None})
+
+            # Move to medical history
+            state["stage"] = "medical_history"
+            bot_reply = _generate_medical_questions(state["collected"])
+            state["conversation"] += f"PhysioGemma: {bot_reply}\n"
+            return bot_reply, state
+
+        # ── STAGE: Medical History ───────────────────────────────────────
+        elif stage == "medical_history":
+            prompt = MEDICAL_EXTRACTION_PROMPT.format(conversation=state["conversation"])
+            response = client.models.generate_content(
+                model=MODEL_ID, contents=prompt,
+                config={"system_instruction": SYSTEM_PROMPT}
+            )
+            med_info = _parse_json(response.text) or {}
+            state["collected"].update({k: v for k, v in med_info.items() if v is not None})
+
+            # Move to functional assessment
+            state["stage"] = "functional"
+            bot_reply = _generate_functional_questions(state["collected"])
+            state["conversation"] += f"PhysioGemma: {bot_reply}\n"
+            return bot_reply, state
+
+        # ── STAGE: Functional Assessment ─────────────────────────────────
+        elif stage == "functional":
+            prompt = FUNCTIONAL_EXTRACTION_PROMPT.format(conversation=state["conversation"])
+            response = client.models.generate_content(
+                model=MODEL_ID, contents=prompt,
+                config={"system_instruction": SYSTEM_PROMPT}
+            )
+            func_info = _parse_json(response.text) or {}
+            state["collected"].update({k: v for k, v in func_info.items() if v is not None})
+
+            # Generate full prescription
+            state["stage"] = "prescription"
+            result = _generate_full_prescription(state["collected"])
+
+            if "error" in result:
+                return f"**Error:** {result['error']}", state
+
+            state["result"] = result
+            return result, state
+
+        # ── STAGE: Prescription (follow-up questions) ────────────────────
+        elif stage == "prescription":
+            # Patient asking follow-up after getting prescription
+            context = state["conversation"]
+            prompt = f"""The patient received their exercise prescription and is asking a follow-up question.
+
+Conversation context:
+{context}
+
+Patient asks: "{message}"
+
+Answer their question helpfully based on the prescription and clinical assessment.
+Be specific to their condition and profile. Keep the clinical disclaimer."""
+
+            response = client.models.generate_content(
+                model=MODEL_ID, contents=prompt,
+                config={"system_instruction": SYSTEM_PROMPT}
+            )
+            bot_reply = response.text
+            state["conversation"] += f"PhysioGemma: {bot_reply}\n"
+            return bot_reply, state
 
     except ValueError as e:
-        return {"type": "error", "message": str(e)}
+        return str(e), state
     except Exception as e:
-        return {"type": "error", "message": f"An error occurred: {str(e)}"}
+        return f"An error occurred: {str(e)}", state
 
+
+def _generate_initial_clarification(message: str, language: str) -> str:
+    """When we can't identify the condition from the first message."""
+    try:
+        client = get_client()
+        lang_inst = "in Hindi (Devanagari)" if language == "hindi" else "in English"
+
+        prompt = f"""The patient said: "{message}"
+
+I couldn't identify their specific condition. As a physiotherapist, greet them warmly and ask:
+1. Where exactly is the pain? (lower back, knee, neck, or shoulder)
+2. How long have they had this pain?
+3. How would they rate the pain from 0 to 10?
+
+Respond {lang_inst}. Be warm and professional. Keep it to one short paragraph + 3 numbered questions."""
+
+        response = client.models.generate_content(
+            model=MODEL_ID, contents=prompt,
+            config={"system_instruction": SYSTEM_PROMPT}
+        )
+        return response.text
+    except Exception:
+        return ("Welcome! I'm PhysioGemma, your AI physiotherapy assistant. "
+                "To create the best exercise plan for you, I need to understand your condition.\n\n"
+                "Could you please tell me:\n"
+                "1. Where is your pain? (lower back, knee, neck, or shoulder)\n"
+                "2. How long have you had this pain?\n"
+                "3. How would you rate your pain from 0-10?")
+
+
+# ── JSON parser ──────────────────────────────────────────────────────────────
 
 def _parse_json(text: str) -> dict | None:
     """Extract JSON object from Gemma 4 response text."""
     if not text:
         return None
     try:
-        # Try direct parse first (if response is pure JSON)
         return json.loads(text.strip())
     except json.JSONDecodeError:
         pass
-
     try:
-        # Extract from markdown code block
         match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
         if match:
             return json.loads(match.group(1))
     except json.JSONDecodeError:
         pass
-
     try:
-        # Find any JSON object in the text
-        match = re.search(r'\{[^{}]*"condition"[^{}]*\}', text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-    except json.JSONDecodeError:
-        pass
-
-    return None
-
-
-def _get_clarification(message: str) -> str:
-    """Generate a clarification request when we can't extract enough info."""
-    try:
-        client = get_client()
-        prompt = f"""The patient said: "{message}"
-
-I couldn't extract enough clinical information to create an exercise plan. Ask them a friendly follow-up question to get:
-1. Where is the pain? (lower back, knee, neck, or shoulder)
-2. How bad is the pain on a scale of 0-10?
-3. Their age
-4. How long they've had the pain
-
-Keep it warm, short, and conversational. One short paragraph."""
-
-        response = client.models.generate_content(
-            model=MODEL_ID,
-            contents=prompt,
-            config={"system_instruction": SYSTEM_PROMPT}
-        )
-        return response.text
+        # Find the largest JSON object in text
+        matches = re.findall(r'\{[^{}]*\}', text, re.DOTALL)
+        for m in reversed(matches):  # try largest first
+            try:
+                parsed = json.loads(m)
+                if isinstance(parsed, dict) and len(parsed) > 1:
+                    return parsed
+            except json.JSONDecodeError:
+                continue
     except Exception:
-        return ("I'd love to help you with your exercise plan! Could you tell me:\n"
-                "1. Where is your pain? (lower back, knee, neck, or shoulder)\n"
-                "2. How bad is the pain from 0-10?\n"
-                "3. Your age\n"
-                "4. How long you've had this pain?\n\n"
-                "For example: 'My lower back has been hurting for 2 months, pain is 6/10, I'm 45 years old'")
+        pass
+    return None
