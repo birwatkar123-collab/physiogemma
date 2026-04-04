@@ -142,6 +142,10 @@ def _format_patient_profile(info: dict) -> str:
         lvl = cond.get("levels", {}).get(info["level"], {})
         plan_label = f"Level {info['level']} — {lvl.get('label', '')}"
 
+    height = info.get('height_cm')
+    weight = info.get('weight_kg')
+    body_info = f"{height} cm / {weight} kg" if height and weight else "N/A"
+
     return f"""### Clinical Assessment Summary
 
 | Category | Detail |
@@ -155,6 +159,7 @@ def _format_patient_profile(info: dict) -> str:
 | **Aggravating** | {aggravating} |
 | **Reducing** | {reducing} |
 | **Age** | {info.get('age', 'N/A')} |
+| **Height / Weight** | {body_info} |
 | **Comorbidities** | {comorbidities} |
 | **Surgical History** | {surgeries} |
 | **Occupation** | {info.get('occupation', 'N/A')} ({info.get('physical_demands', 'N/A')} demands) |

@@ -741,6 +741,134 @@ AGGRAVATION_MODIFIERS = {
 }
 
 
+# ── BMI-based exercise modifications ──────────────────────────────────────
+# ACSM guidelines: BMI 30+ requires joint-protective modifications.
+# Evidence: Messier 2004 (weight and knee OA), ACSM Position Stand on Overweight/Obesity.
+
+BMI_MODIFIERS = {
+    "overweight": {
+        "range": "25.0-29.9",
+        "exercises": [],  # No additional exercises, just advice
+        "advice": "Maintain good form to protect joints. Low-impact options preferred when available.",
+        "swap_rules": {},
+    },
+    "obese_1": {
+        "range": "30.0-34.9",
+        "exercises": [
+            {"name": "Seated Marching", "sets": 2, "reps": "20", "type": "mobility",
+             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Low-impact cardiovascular and hip mobility exercise."},
+        ],
+        "advice": "Use seated or lying exercises first. Progress to standing when comfortable. Use a sturdy chair for support during standing exercises.",
+        "swap_rules": {},
+        # Conditions where high-impact is risky
+        "reduce_impact_for": ["KNEE_OA", "HIP_OA", "PLANTAR_FASCIITIS", "LBP"],
+    },
+    "obese_2": {
+        "range": "35.0-39.9",
+        "exercises": [
+            {"name": "Seated Marching", "sets": 2, "reps": "20", "type": "mobility",
+             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Low-impact cardiovascular and hip mobility exercise."},
+            {"name": "Wall Push-Up", "sets": 2, "reps": "10", "type": "strengthening",
+             "instruction": "Stand arm's length from wall. Place hands on wall, slowly bend elbows to bring chest toward wall. Push back. Upper body strengthening without floor work."},
+        ],
+        "advice": "Prioritize non-weight-bearing and seated exercises. Use chair for balance support. Avoid jumping or high-impact movements. Monitor breathing and heart rate.",
+        "swap_rules": {},
+        "reduce_impact_for": ["KNEE_OA", "HIP_OA", "PLANTAR_FASCIITIS", "LBP", "SCIATICA"],
+    },
+    "obese_3": {
+        "range": "40.0+",
+        "exercises": [
+            {"name": "Seated Marching", "sets": 2, "reps": "15", "type": "mobility",
+             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Start with shorter duration and build up."},
+            {"name": "Wall Push-Up", "sets": 2, "reps": "8", "type": "strengthening",
+             "instruction": "Stand arm's length from wall. Place hands on wall, slowly bend elbows. Push back. Modify range if needed."},
+            {"name": "Seated Ankle Pumps", "sets": 2, "reps": "20", "type": "mobility",
+             "instruction": "Sit with legs extended. Pump ankles up and down. Promotes circulation and ankle mobility without standing."},
+        ],
+        "advice": "Start with seated and lying exercises only. Avoid all floor-to-standing transitions initially. Use armrests to assist standing. Monitor for shortness of breath. Take rest breaks between exercises.",
+        "swap_rules": {},
+        "reduce_impact_for": ["KNEE_OA", "HIP_OA", "PLANTAR_FASCIITIS", "LBP", "SCIATICA", "TENNIS_ELBOW"],
+    },
+}
+
+
+def calculate_bmi(height_cm: float, weight_kg: float) -> dict:
+    """
+    Calculate BMI and return category with clinical significance.
+
+    Returns:
+        dict with 'bmi', 'category', 'modifier_key' (or None if normal/underweight)
+    """
+    if not height_cm or not weight_kg or height_cm <= 0 or weight_kg <= 0:
+        return {"bmi": None, "category": "unknown", "modifier_key": None}
+
+    height_m = height_cm / 100.0
+    bmi = round(weight_kg / (height_m ** 2), 1)
+
+    if bmi < 18.5:
+        return {"bmi": bmi, "category": "underweight", "modifier_key": None}
+    elif bmi < 25.0:
+        return {"bmi": bmi, "category": "normal", "modifier_key": None}
+    elif bmi < 30.0:
+        return {"bmi": bmi, "category": "overweight", "modifier_key": "overweight"}
+    elif bmi < 35.0:
+        return {"bmi": bmi, "category": "obese_class_1", "modifier_key": "obese_1"}
+    elif bmi < 40.0:
+        return {"bmi": bmi, "category": "obese_class_2", "modifier_key": "obese_2"}
+    else:
+        return {"bmi": bmi, "category": "obese_class_3", "modifier_key": "obese_3"}
+
+
+def apply_bmi_modifiers(plan: dict, bmi_info: dict, condition: str, level: int) -> dict:
+    """
+    Apply BMI-based exercise modifications to an existing plan.
+
+    Args:
+        plan: Exercise plan (may already have occupation/aggravation modifiers applied)
+        bmi_info: Output from calculate_bmi()
+        condition: Patient's condition code (e.g., 'KNEE_OA')
+        level: Current exercise level
+
+    Returns:
+        Modified plan with BMI-appropriate exercises and notes.
+    """
+    modifier_key = bmi_info.get("modifier_key")
+    if not modifier_key:
+        return plan
+
+    mod = BMI_MODIFIERS.get(modifier_key)
+    if not mod:
+        return plan
+
+    exercises = list(plan["exercises"])
+    notes = list(plan.get("modifier_notes", []))
+    added_names = {ex["name"] for ex in exercises}
+
+    # Add BMI-specific exercises (if level >= 2, not acute)
+    if level >= 2:
+        for ex in mod.get("exercises", []):
+            if ex["name"] not in added_names:
+                exercises.append(ex)
+                added_names.add(ex["name"])
+
+    # For high-impact conditions with elevated BMI, flag in notes
+    reduce_conditions = mod.get("reduce_impact_for", [])
+    if condition in reduce_conditions:
+        notes.append(
+            f"**BMI consideration (BMI {bmi_info['bmi']}, {mod['range']}):** "
+            f"{mod['advice']} Prioritize low-impact exercise variants for joint protection."
+        )
+    else:
+        notes.append(
+            f"**BMI consideration (BMI {bmi_info['bmi']}, {mod['range']}):** {mod['advice']}"
+        )
+
+    modified_plan = dict(plan)
+    modified_plan["exercises"] = exercises
+    modified_plan["modifier_notes"] = notes
+    return modified_plan
+
+
 def apply_modifiers(plan: dict, occupation: str, aggravating_factors: list, level: int) -> dict:
     """
     Apply occupation-based and aggravation-based modifiers to an exercise plan.

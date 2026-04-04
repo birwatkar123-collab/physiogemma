@@ -23,7 +23,8 @@ import json
 import re
 from google import genai
 
-from exercises import EXERCISES, get_exercise_plan, determine_level, apply_modifiers, OCCUPATION_ADDONS, AGGRAVATION_MODIFIERS
+from exercises import (EXERCISES, get_exercise_plan, determine_level, apply_modifiers,
+                       apply_bmi_modifiers, calculate_bmi, OCCUPATION_ADDONS, AGGRAVATION_MODIFIERS)
 from red_flags import check_red_flags, format_red_flag_warning
 
 # ── Gemma 4 client setup ────────────────────────────────────────────────────
@@ -168,12 +169,20 @@ Conversation so far:
 Return ONLY a JSON object:
 {{
   "age": number,
+  "height_cm": number or null,
+  "weight_kg": number or null,
   "comorbidities": ["list: diabetes, hypertension, heart disease, obesity, etc."],
   "surgical_history": ["list of past surgeries, especially musculoskeletal"],
   "medications": ["current medications"],
   "previous_physio": true or false or null,
   "allergies": ["list"] or []
 }}
+
+Height/weight conversion rules:
+- If height given in feet/inches, convert to cm (e.g., 5'6" = 167.6 cm, 5 feet 10 = 177.8 cm)
+- If weight given in pounds/lbs, convert to kg (divide by 2.205)
+- If height given in meters, convert to cm (multiply by 100)
+- Round to nearest whole number
 
 Use null for any field not discussed."""
 
@@ -270,9 +279,11 @@ We've completed the SITCAR pain evaluation. This is the next step.
 
 Briefly acknowledge what you've learned so far about their pain (1 sentence summary), then ask about:
 1. Age (if not already known: {collected.get('age', 'NOT KNOWN')})
-2. Any chronic conditions (diabetes, blood pressure, heart problems, thyroid, osteoporosis, etc.)
-3. Any past surgeries (especially related to spine, joints, or muscles)
-4. Current medications they take regularly
+2. Height and weight (frame it naturally: "Could you share your height and approximate weight?
+   This helps me choose exercises that are safe for your joints." — never mention BMI)
+3. Any chronic conditions (diabetes, blood pressure, heart problems, thyroid, osteoporosis, etc.)
+4. Any past surgeries (especially related to spine, joints, or muscles)
+5. Current medications they take regularly
 
 {med_concerns.get(condition, "")}
 
@@ -398,6 +409,14 @@ def _generate_full_prescription(collected: dict) -> dict:
             occ_category = "heavy"
 
     plan = apply_modifiers(plan, occ_category, aggravating_factors, level)
+
+    # Apply BMI-based modifiers
+    height_cm = collected.get("height_cm")
+    weight_kg = collected.get("weight_kg")
+    bmi_info = calculate_bmi(height_cm or 0, weight_kg or 0)
+    if bmi_info["bmi"] and bmi_info["modifier_key"]:
+        plan = apply_bmi_modifiers(plan, bmi_info, condition, level)
+
     modifier_notes = plan.get("modifier_notes", [])
 
     # Build comprehensive context for Gemma 4 reasoning
@@ -440,6 +459,7 @@ SITCAR Pain Evaluation:
 
 Medical History:
 - Age: {age} years
+- Height: {height_cm or 'Not provided'} cm | Weight: {weight_kg or 'Not provided'} kg | BMI: {bmi_info['bmi'] or 'Not calculated'} ({bmi_info['category']})
 - Comorbidities: {comorbidities_str}
 - Surgical history: {surgeries}
 - Medications: {meds}
@@ -465,6 +485,7 @@ Functional Assessment:
 - Pain character modifier: {'Applied (-1) - sharp/shooting suggests neural involvement' if characteristic in ('sharp', 'shooting') else 'Not needed'}
 - Surgical history modifier: {'Applied (-1) - post-surgical caution' if spine_surgery else 'Not needed'}
 - Chronicity modifier: {'Applied (+1) - chronic with lower pain can progress' if is_chronic and pain_vas < 5 else 'Not needed'}
+- BMI modifier: {f'BMI {bmi_info["bmi"]} ({bmi_info["category"]}) - joint-protective modifications applied' if bmi_info.get('modifier_key') else 'Not needed (normal BMI or not provided)'}
 
 === OCCUPATION & AGGRAVATION MODIFIERS ===
 {chr(10).join(modifier_notes) if modifier_notes else "No specific modifiers applied."}
@@ -552,6 +573,8 @@ Avoid medical jargon unless you explain it immediately. Be specific — never ge
             "post_surgical": spine_surgery,
             "occupation_category": occ_category,
             "aggravation_modifiers": [a for a in aggravating_factors if any(k in a.lower() for k in AGGRAVATION_MODIFIERS)],
+            "bmi": bmi_info.get("bmi"),
+            "bmi_category": bmi_info.get("category"),
         }
     }
 
