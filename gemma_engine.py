@@ -23,7 +23,7 @@ import json
 import re
 from google import genai
 
-from exercises import EXERCISES, get_exercise_plan, determine_level
+from exercises import EXERCISES, get_exercise_plan, determine_level, apply_modifiers, OCCUPATION_ADDONS, AGGRAVATION_MODIFIERS
 from red_flags import check_red_flags, format_red_flag_warning
 
 # ── Gemma 4 client setup ────────────────────────────────────────────────────
@@ -302,6 +302,27 @@ def _generate_full_prescription(collected: dict) -> dict:
     if "error" in plan:
         return {"error": plan["error"]}
 
+    # Apply occupation-based and aggravation-based modifiers
+    aggravating_factors = collected.get("aggravating_factors") or []
+    occupation = collected.get("occupation", "")
+    physical_demands = collected.get("physical_demands", "")
+
+    # Map occupation description to demand category if physical_demands not set
+    occ_category = physical_demands if physical_demands in ("sedentary", "light", "moderate", "heavy") else ""
+    if not occ_category and occupation:
+        occ_lower = occupation.lower()
+        if any(kw in occ_lower for kw in ["desk", "office", "computer", "software", "it ", "bank", "account"]):
+            occ_category = "sedentary"
+        elif any(kw in occ_lower for kw in ["teacher", "retail", "shop", "cook", "homemaker", "housewife"]):
+            occ_category = "light"
+        elif any(kw in occ_lower for kw in ["nurse", "warehouse", "factory", "delivery", "kitchen"]):
+            occ_category = "moderate"
+        elif any(kw in occ_lower for kw in ["construction", "farm", "labour", "labor", "loading", "mining"]):
+            occ_category = "heavy"
+
+    plan = apply_modifiers(plan, occ_category, aggravating_factors, level)
+    modifier_notes = plan.get("modifier_notes", [])
+
     # Build comprehensive context for Gemma 4 reasoning
     client = get_client()
     lang = collected.get("language", "english")
@@ -314,7 +335,7 @@ def _generate_full_prescription(collected: dict) -> dict:
         indent=2
     )
 
-    aggravating = ", ".join(collected.get("aggravating_factors", [])) or "Not specified"
+    aggravating = ", ".join(aggravating_factors) or "Not specified"
     reducing = ", ".join(collected.get("reducing_factors", [])) or "Not specified"
     limited = ", ".join(collected.get("limited_activities", [])) or "Not specified"
     surgeries = ", ".join(surgical_history) or "None"
@@ -368,6 +389,9 @@ Functional Assessment:
 - Surgical history modifier: {'Applied (-1) - post-surgical caution' if spine_surgery else 'Not needed'}
 - Chronicity modifier: {'Applied (+1) - chronic with lower pain can progress' if is_chronic and pain_vas < 5 else 'Not needed'}
 
+=== OCCUPATION & AGGRAVATION MODIFIERS ===
+{chr(10).join(modifier_notes) if modifier_notes else "No specific modifiers applied."}
+
 Provide your response {lang_instruction} with:
 
 1. **Summary of findings** from the assessment (2-3 sentences)
@@ -408,6 +432,8 @@ Be thorough but compassionate. This should read like a professional physiotherap
             "tendency_worsening": tendency == "worsening",
             "sharp_shooting": characteristic in ("sharp", "shooting"),
             "post_surgical": spine_surgery,
+            "occupation_category": occ_category,
+            "aggravation_modifiers": [a for a in aggravating_factors if any(k in a.lower() for k in AGGRAVATION_MODIFIERS)],
         }
     }
 

@@ -231,8 +231,8 @@ def build_app():
                 AI Physiotherapy Assistant powered by <strong>Gemma 4</strong>
             </p>
             <p style="font-size: 0.85em; color: #64748b; margin: 4px 0 0 0;">
-                SITCAR Pain Evaluation &bull; Evidence-Based Prescriptions &bull;
-                Clinical Reasoning &bull; English &amp; Hindi
+                SITCAR Pain Evaluation &bull; Occupation-Adapted Prescriptions &bull;
+                Red Flag Detection &bull; English &amp; Hindi
             </p>
         </div>
         """)
@@ -251,9 +251,13 @@ Then **Gemma 4** synthesizes everything into an evidence-based exercise prescrip
 
 **Red Flag Detection:** PhysioGemma screens for serious warning signs (cauda equina, fractures, infections, cardiac symptoms) and advises immediate medical consultation when detected.
 
+**Occupation-Based Modifications:** Exercises are tailored to your work demands — desk workers get posture correction, manual laborers get safe lifting drills, and standing workers get fatigue-reducing exercises.
+
+**Aggravation-Aware Prescriptions:** If sitting, bending, lifting, or stairs worsen your pain, the exercise plan automatically adapts — swapping aggravating movements for safer alternatives.
+
 **8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
 
-**Clinical references:** Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews, Canadian C-Spine Rules
+**Clinical references:** Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews, Canadian C-Spine Rules, McKenzie Method
             """)
 
         # Stage indicator

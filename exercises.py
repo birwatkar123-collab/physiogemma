@@ -612,6 +612,201 @@ EXERCISES = {
 }
 
 
+# ── Occupation-based exercise add-ons ──────────────────────────────────────
+# These are supplementary exercises added based on patient's work demands.
+# Evidence: ACSM workplace ergonomics guidelines, Cochrane occupational health reviews.
+
+OCCUPATION_ADDONS = {
+    "sedentary": {
+        "description": "Desk/office worker — prolonged sitting",
+        "exercises": [
+            {"name": "Chin Tuck (Postural)", "sets": 3, "reps": "10, hold 5s", "type": "posture",
+             "instruction": "Sit tall. Pull chin straight back (make a double chin). Hold 5 seconds. Corrects forward head posture from screen work."},
+            {"name": "Seated Thoracic Extension", "sets": 2, "reps": "10", "type": "mobility",
+             "instruction": "Sit with hands behind head. Gently arch upper back over chair back. Counteracts hunched desk posture."},
+            {"name": "Standing Hip Flexor Stretch", "sets": 2, "reps": "30s each side", "type": "stretching",
+             "instruction": "Step one foot forward into lunge. Push hips forward gently. Relieves tight hip flexors from prolonged sitting."},
+        ],
+        "advice": "Take a 2-minute movement break every 30 minutes. Set a timer. Stand, walk, or do one stretch."
+    },
+    "light": {
+        "description": "Light physical work — teacher, retail, homemaker",
+        "exercises": [
+            {"name": "Scapular Squeeze", "sets": 3, "reps": "10, hold 5s", "type": "posture",
+             "instruction": "Stand tall. Squeeze shoulder blades together. Hold 5 seconds. Builds postural endurance for standing tasks."},
+            {"name": "Calf Raises", "sets": 2, "reps": "15", "type": "strengthening",
+             "instruction": "Stand on both feet. Rise onto toes slowly. Lower slowly. Reduces leg fatigue from standing."},
+        ],
+        "advice": "Wear supportive footwear. Alternate between sitting and standing tasks when possible."
+    },
+    "moderate": {
+        "description": "Moderate physical work — nursing, warehouse, cooking",
+        "exercises": [
+            {"name": "McGill Big 3 — Curl-up", "sets": 3, "reps": "8", "type": "stability",
+             "instruction": "Lie on back, one knee bent. Place hands under lower back. Lift head and shoulders slightly. Builds spine-protective core endurance."},
+            {"name": "Farmer's Walk (light)", "sets": 2, "reps": "30s", "type": "functional",
+             "instruction": "Hold light weights at sides. Walk with tall posture, bracing core. Trains safe carrying mechanics."},
+        ],
+        "advice": "Use proper body mechanics: bend knees not back, keep loads close to body, avoid twisting under load."
+    },
+    "heavy": {
+        "description": "Heavy physical work — construction, farming, loading",
+        "exercises": [
+            {"name": "Hip Hinge Drill", "sets": 3, "reps": "10", "type": "functional",
+             "instruction": "Stand with dowel along spine. Hinge at hips pushing them back, slight knee bend. Trains safe lifting pattern."},
+            {"name": "Pallof Press Anti-Rotation", "sets": 3, "reps": "10 each side", "type": "stability",
+             "instruction": "Stand with band at chest height. Press forward resisting rotation. Builds anti-rotation strength for heavy lifting."},
+            {"name": "Goblet Squat", "sets": 3, "reps": "10", "type": "functional",
+             "instruction": "Hold weight at chest. Squat down keeping chest up. Trains proper squat-to-lift mechanics."},
+        ],
+        "advice": "Always warm up before shifts. Use lifting aids when available. Report workplace ergonomic concerns."
+    },
+}
+
+
+# ── Aggravation-based exercise swaps ──────────────────────────────────────
+# When specific activities aggravate pain, we modify the exercise selection.
+# Evidence: McKenzie method, pain-contingent exercise modification principles.
+
+AGGRAVATION_MODIFIERS = {
+    "sitting": {
+        "avoid_types": [],  # Don't remove exercises, but add compensatory ones
+        "add": [
+            {"name": "Prone Press-Up (McKenzie)", "sets": 2, "reps": "10", "type": "mobility",
+             "instruction": "Lie face down. Press upper body up with arms, keeping hips on floor. Counteracts flexion loading from sitting."},
+        ],
+        "swap_rules": {},
+        "note": "Avoid prolonged sitting during exercises. Use standing or lying alternatives where possible."
+    },
+    "bending": {
+        "avoid_types": [],
+        "add": [
+            {"name": "Hip Hinge Retraining", "sets": 2, "reps": "10", "type": "functional",
+             "instruction": "Practice hinging at hips instead of rounding lower back. Use wall touch cue: stand a foot from wall, push hips back to touch wall."},
+        ],
+        "swap_rules": {"Knee-to-Chest Stretch": None},  # Remove: involves flexion
+        "note": "Minimize forward bending in exercises. Focus on hip hinging instead of spinal flexion."
+    },
+    "walking": {
+        "avoid_types": [],
+        "add": [],
+        "swap_rules": {},
+        "note": "Start exercises in lying or seated positions. Progress to standing only when pain allows."
+    },
+    "standing": {
+        "avoid_types": [],
+        "add": [
+            {"name": "Supine Core Activation", "sets": 2, "reps": "10, hold 10s", "type": "stability",
+             "instruction": "Lie on back. Draw belly button in gently. Hold 10 seconds while breathing normally. Builds core support without standing load."},
+        ],
+        "swap_rules": {},
+        "note": "Prioritize lying and seated exercises. Limit standing exercise duration initially."
+    },
+    "lifting": {
+        "avoid_types": [],
+        "add": [
+            {"name": "Dead Bug", "sets": 2, "reps": "8 each side", "type": "stability",
+             "instruction": "Lie on back, arms up, knees at 90°. Slowly lower opposite arm and leg while keeping back flat. Builds safe lifting foundation."},
+        ],
+        "swap_rules": {},
+        "note": "No loaded exercises until core stability is established. Progress loading gradually."
+    },
+    "stairs": {
+        "avoid_types": [],
+        "add": [
+            {"name": "Step-Up (low step)", "sets": 2, "reps": "8 each leg", "type": "functional",
+             "instruction": "Use a low step (10-15cm). Step up slowly with control, step down slowly. Retrains stair mechanics with reduced load."},
+        ],
+        "swap_rules": {},
+        "note": "Use handrails on stairs. Lead with the stronger leg going up, weaker leg going down."
+    },
+    "overhead": {
+        "avoid_types": [],
+        "add": [
+            {"name": "Wall Slide", "sets": 2, "reps": "10", "type": "mobility",
+             "instruction": "Stand with back against wall. Slide arms up wall in W-to-Y pattern. Builds overhead mobility safely."},
+        ],
+        "swap_rules": {},
+        "note": "Avoid overhead reaching during recovery. Use step stools for high tasks."
+    },
+    "driving": {
+        "avoid_types": [],
+        "add": [
+            {"name": "Seated Lumbar Roll Stretch", "sets": 2, "reps": "30s each side", "type": "stretching",
+             "instruction": "Sit tall, cross one leg. Rotate trunk toward crossed knee. Hold 30 seconds. Do before and after driving."},
+        ],
+        "swap_rules": {},
+        "note": "Use lumbar support cushion. Stop every 30-45 minutes for a brief walk and stretch."
+    },
+}
+
+
+def apply_modifiers(plan: dict, occupation: str, aggravating_factors: list, level: int) -> dict:
+    """
+    Apply occupation-based and aggravation-based modifiers to an exercise plan.
+
+    Args:
+        plan: Base exercise plan from get_exercise_plan()
+        occupation: Physical demands category (sedentary/light/moderate/heavy)
+        aggravating_factors: List of aggravating activities from SITCAR
+        level: Current exercise level (1-5), used to gate advanced add-ons
+
+    Returns:
+        Modified plan with added/swapped exercises and clinical notes.
+    """
+    exercises = list(plan["exercises"])
+    notes = []
+    added_names = {ex["name"] for ex in exercises}
+
+    # ── Apply occupation add-ons ──────────────────────────────────────────
+    occ_key = (occupation or "").lower().strip()
+    occ_data = OCCUPATION_ADDONS.get(occ_key)
+    if occ_data:
+        # Only add occupation exercises if patient is at level 2+ (not acute severe)
+        if level >= 2:
+            for ex in occ_data["exercises"]:
+                if ex["name"] not in added_names:
+                    exercises.append(ex)
+                    added_names.add(ex["name"])
+            notes.append(f"**Occupation ({occ_data['description']}):** {occ_data['advice']}")
+        else:
+            notes.append(f"**Occupation ({occ_data['description']}):** {occ_data['advice']} "
+                         "(Workplace exercises deferred — focus on pain relief first.)")
+
+    # ── Apply aggravation-based modifiers ─────────────────────────────────
+    aggravating_lower = [a.lower() for a in (aggravating_factors or [])]
+    matched_modifiers = set()
+
+    for agg_text in aggravating_lower:
+        for key in AGGRAVATION_MODIFIERS:
+            if key in agg_text:
+                matched_modifiers.add(key)
+
+    for mod_key in matched_modifiers:
+        mod = AGGRAVATION_MODIFIERS[mod_key]
+
+        # Apply swap rules (remove exercises that aggravate)
+        for old_name, replacement in mod.get("swap_rules", {}).items():
+            exercises = [ex for ex in exercises if ex["name"] != old_name]
+            if replacement and replacement["name"] not in added_names:
+                exercises.append(replacement)
+                added_names.add(replacement["name"])
+
+        # Add compensatory exercises
+        for ex in mod.get("add", []):
+            if ex["name"] not in added_names:
+                exercises.append(ex)
+                added_names.add(ex["name"])
+
+        if mod.get("note"):
+            notes.append(f"**Aggravation ({mod_key}):** {mod['note']}")
+
+    modified_plan = dict(plan)
+    modified_plan["exercises"] = exercises
+    modified_plan["modifier_notes"] = notes
+    return modified_plan
+
+
 def get_exercise_plan(condition: str, level: int) -> dict:
     """Return exercise plan for a given condition and level."""
     cond = EXERCISES.get(condition)
