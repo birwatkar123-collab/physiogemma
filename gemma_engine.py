@@ -24,6 +24,7 @@ import re
 from google import genai
 
 from exercises import EXERCISES, get_exercise_plan, determine_level
+from red_flags import check_red_flags, format_red_flag_warning
 
 # ── Gemma 4 client setup ────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ Patient says: "{message}"
 
 Return ONLY a JSON object with these fields (use null for anything not mentioned):
 {{
-  "condition": "LBP or KNEE_OA or NECK or FROZEN_SHOULDER or null",
+  "condition": "LBP or KNEE_OA or NECK or FROZEN_SHOULDER or SCIATICA or HIP_OA or PLANTAR_FASCIITIS or TENNIS_ELBOW or null",
   "pain_site_detail": "specific location description or null",
   "pain_vas": number or null,
   "age": number or null,
@@ -109,7 +110,11 @@ Condition mapping:
 - lower back / lumbar / back pain = LBP
 - knee / osteoarthritis / joint stiffness in knee = KNEE_OA
 - neck / cervical / stiff neck = NECK
-- shoulder / frozen shoulder / shoulder stiffness = FROZEN_SHOULDER"""
+- shoulder / frozen shoulder / shoulder stiffness = FROZEN_SHOULDER
+- sciatica / leg pain from back / radiating leg pain / shooting down leg = SCIATICA
+- hip / hip joint / groin pain / hip arthritis = HIP_OA
+- heel pain / plantar fasciitis / foot pain bottom / sole pain = PLANTAR_FASCIITIS
+- elbow pain / tennis elbow / lateral epicondylitis / outer elbow = TENNIS_ELBOW"""
 
 
 SITCAR_EXTRACTION_PROMPT = """Extract SITCAR pain evaluation details from the conversation.
@@ -439,13 +444,22 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             initial_info = _parse_json(response.text) or {}
             state["collected"].update({k: v for k, v in initial_info.items() if v is not None})
 
-            # Check for red flags
-            red_flags = initial_info.get("red_flags", [])
-            if red_flags:
-                warning = ("**Important:** You mentioned symptoms that may need immediate "
-                           "medical attention. Please consult a doctor or visit an emergency "
-                           "room for: " + ", ".join(red_flags))
-                state["stage"] = "initial"
+            # Check for red flags using comprehensive detection engine
+            condition = state["collected"].get("condition")
+            detected_flags = check_red_flags(message, condition)
+
+            # Also check any LLM-detected red flags
+            llm_flags = initial_info.get("red_flags", [])
+            if llm_flags:
+                # Run LLM-detected flag text through our engine too
+                for flag_text in llm_flags:
+                    extra_flags = check_red_flags(flag_text, condition)
+                    detected_flags.extend(extra_flags)
+
+            if detected_flags:
+                warning = format_red_flag_warning(detected_flags)
+                state["red_flags_detected"] = detected_flags
+                state["stage"] = "initial"  # Don't proceed to exercises
                 return warning, state
 
             # Check if we have enough to identify condition
@@ -463,6 +477,14 @@ def process_message(message: str, history: list, state: dict) -> tuple:
 
         # ── STAGE: SITCAR ────────────────────────────────────────────────
         elif stage == "sitcar":
+            # Red flag check on every message
+            condition = state["collected"].get("condition")
+            detected_flags = check_red_flags(message, condition)
+            if detected_flags:
+                warning = format_red_flag_warning(detected_flags)
+                state["red_flags_detected"] = detected_flags
+                return warning, state
+
             prompt = SITCAR_EXTRACTION_PROMPT.format(conversation=state["conversation"])
             response = client.models.generate_content(
                 model=MODEL_ID, contents=prompt,
@@ -479,6 +501,13 @@ def process_message(message: str, history: list, state: dict) -> tuple:
 
         # ── STAGE: Medical History ───────────────────────────────────────
         elif stage == "medical_history":
+            # Red flag check (cancer history, etc.)
+            detected_flags = check_red_flags(message, state["collected"].get("condition"))
+            if detected_flags:
+                warning = format_red_flag_warning(detected_flags)
+                state["red_flags_detected"] = detected_flags
+                return warning, state
+
             prompt = MEDICAL_EXTRACTION_PROMPT.format(conversation=state["conversation"])
             response = client.models.generate_content(
                 model=MODEL_ID, contents=prompt,

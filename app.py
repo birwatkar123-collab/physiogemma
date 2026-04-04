@@ -249,7 +249,11 @@ def build_app():
 
 Then **Gemma 4** synthesizes everything into an evidence-based exercise prescription with full clinical reasoning.
 
-**Clinical references:** Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews
+**Red Flag Detection:** PhysioGemma screens for serious warning signs (cauda equina, fractures, infections, cardiac symptoms) and advises immediate medical consultation when detected.
+
+**8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
+
+**Clinical references:** Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews, Canadian C-Spine Rules
             """)
 
         # Stage indicator
@@ -284,6 +288,10 @@ Then **Gemma 4** synthesizes everything into an evidence-based exercise prescrip
                 "I'm 62, knee pain for 6 months, getting worse lately",
                 "मेरी गर्दन में 2 हफ्ते से दर्द है, बहुत तेज़ दर्द है",
                 "Shoulder is frozen, can't raise my arm. 55 years old, pain started 4 months ago",
+                "Pain shooting down my left leg from lower back, 7/10, age 38",
+                "My heel hurts every morning when I step out of bed, been 2 months",
+                "Hip pain for 1 year, 65 years old, hard to walk and climb stairs",
+                "Elbow pain on outer side, worse when gripping or typing, I work in IT",
             ],
             inputs=msg,
             label="Try these examples:",
