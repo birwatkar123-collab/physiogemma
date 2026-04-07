@@ -4,7 +4,7 @@ PhysioGemma — AI Physiotherapy Agent powered by Gemma 4
 Kaggle Gemma 4 Good Hackathon | Health & Sciences Track
 
 ReAct agent with tool-calling, structured reasoning, patient progress
-tracking, recovery graph, and AI-powered insights.
+tracking with recovery graph, and AI-powered recovery insights.
 
 Run: python app.py
 """
@@ -19,7 +19,6 @@ from progress import (
     tool_analyze_progress, serialize_progress, deserialize_progress,
     get_overall_stats,
 )
-from google.genai import types
 
 # ── Theme ────────────────────────────────────────────────────────────────────
 
@@ -82,13 +81,13 @@ CSS = """
 .progress-done { background: #10b981; color: white; }
 .progress-pending { background: #e2e8f0; color: #94a3b8; }
 .stat-card {
-    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
     border: 1px solid #bae6fd;
     border-radius: 12px;
     padding: 16px;
     text-align: center;
 }
-.stat-card h3 { color: #3b82f6; margin: 0; font-size: 28px; }
+.stat-card h3 { color: #0369a1; margin: 0; font-size: 28px; }
 .stat-card p { color: #64748b; margin: 4px 0 0 0; font-size: 13px; }
 .milestone-badge {
     display: inline-block;
@@ -96,10 +95,10 @@ CSS = """
     border: 1px solid #f59e0b;
     border-radius: 20px;
     padding: 6px 14px;
-    margin: 4px;
     font-size: 13px;
-    font-weight: 600;
+    margin: 4px;
     color: #92400e;
+    font-weight: 600;
 }
 .insight-card {
     border-radius: 10px;
@@ -108,12 +107,20 @@ CSS = """
     font-size: 14px;
 }
 .insight-improvement { background: #d1fae5; border-left: 4px solid #10b981; }
-.insight-achievement { background: #dbeafe; border-left: 4px solid #3b82f6; }
 .insight-concern { background: #fef2f2; border-left: 4px solid #ef4444; }
-.insight-suggestion { background: #fef3c7; border-left: 4px solid #f59e0b; }
+.insight-suggestion { background: #dbeafe; border-left: 4px solid #3b82f6; }
+.insight-achievement { background: #fef3c7; border-left: 4px solid #f59e0b; }
 .insight-info { background: #f1f5f9; border-left: 4px solid #94a3b8; }
-.insight-milestone { background: #f5f3ff; border-left: 4px solid #8b5cf6; }
+.insight-milestone { background: #ede9fe; border-left: 4px solid #8b5cf6; }
 .insight-ready_to_progress { background: #d1fae5; border-left: 4px solid #059669; }
+.recommendation-box {
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+}
 footer { display: none !important; }
 """
 
@@ -150,7 +157,6 @@ DATA_FIELDS = {
 
 
 def _progress_html(collected: dict) -> str:
-    """Dynamic progress based on what data the agent has collected."""
     pills = []
     for label, key in DATA_FIELDS.items():
         has_data = bool(collected.get(key))
@@ -186,11 +192,13 @@ def _format_reasoning_chain(chain: list) -> str:
         if "action" in step:
             tool_label = TOOL_LABELS.get(step["action"], step["action"])
             args_str = ", ".join(f"{k}={v}" for k, v in step.get("args", {}).items()
-                                if k != "patient_message" and k != "progress_data_json")
+                                if k not in ("patient_message", "progress_data_json"))
             if len(args_str) > 120:
                 args_str = args_str[:120] + "..."
-            html += (f'<div class="reasoning-step reasoning-action">'
-                     f'<strong>Action:</strong> <span class="tool-badge">{tool_label}</span>')
+            html += (
+                f'<div class="reasoning-step reasoning-action">'
+                f'<strong>Action:</strong> <span class="tool-badge">{tool_label}</span>'
+            )
             if args_str:
                 html += f' <span style="color:#64748b;">({args_str})</span>'
             html += '</div>'
@@ -199,8 +207,11 @@ def _format_reasoning_chain(chain: list) -> str:
             result_str = step.get("result", "")
             is_warning = "RED FLAG" in result_str.upper()
             cls = "reasoning-warning" if is_warning else "reasoning-observation"
-            html += (f'<div class="reasoning-step {cls}">'
-                     f'<strong>Observation ({tool_label}):</strong> {result_str}</div>')
+            html += (
+                f'<div class="reasoning-step {cls}">'
+                f'<strong>Observation ({tool_label}):</strong> {result_str}'
+                f'</div>'
+            )
     html += '</div>'
     return html
 
@@ -231,7 +242,8 @@ def _format_prescription_html(result: dict) -> str:
                 f'<span style="position:absolute; top:50%; left:50%; '
                 f'transform:translate(-50%,-50%); font-size:48px; '
                 f'color:#fff; text-shadow:0 0 10px rgba(0,0,0,0.7); '
-                f'pointer-events:none;">&#9654;</span></a>'
+                f'pointer-events:none;">&#9654;</span>'
+                f'</a>'
             )
         icon = type_icons.get(ex.get("type", ""), "&#127947;")
         exercises_html += (
@@ -253,12 +265,18 @@ def _format_patient_profile(info: dict) -> str:
     condition_name = EXERCISES.get(condition, {}).get("name", condition)
     comorbidities = ", ".join(info.get("comorbidities", [])) if isinstance(info.get("comorbidities"), list) else "N/A"
     aggravating = ", ".join(info.get("aggravating_factors", [])) if isinstance(info.get("aggravating_factors"), list) else "N/A"
-    level = info.get("level")
+    reducing = ", ".join(info.get("reducing_factors", [])) if isinstance(info.get("reducing_factors"), list) else "N/A"
+
     plan_label = ""
+    level = info.get("level")
     if level:
         cond = EXERCISES.get(condition, {})
         lvl = cond.get("levels", {}).get(level, {})
         plan_label = f"Level {level} — {lvl.get('label', info.get('level_label', ''))}"
+
+    height = info.get('height_cm')
+    weight = info.get('weight_kg')
+    body_info = f"{height} cm / {weight} kg" if height and weight else "N/A"
     vas = info.get('intensity_vas', info.get('pain_vas', 'N/A'))
 
     return f"""### Clinical Assessment Summary
@@ -270,31 +288,33 @@ def _format_patient_profile(info: dict) -> str:
 | **Tendency** | {info.get('tendency', 'N/A')} |
 | **Characteristic** | {info.get('characteristic', 'N/A')} |
 | **Aggravating** | {aggravating} |
+| **Reducing** | {reducing} |
 | **Age** | {info.get('age', 'N/A')} |
+| **Height / Weight** | {body_info} |
+| **Comorbidities** | {comorbidities} |
 | **Occupation** | {info.get('occupation', 'N/A')} ({info.get('physical_demands', 'N/A')}) |
 | **Prescription** | {plan_label} |
 """
 
 
-# ── Progress tracking helpers ───────────────────────────────────────────────
+# ── Stats cards HTML ────────────────────────────────────────────────────────
 
 def _stats_html(progress_data: dict) -> str:
-    """Generate stats cards HTML."""
     stats = get_overall_stats(progress_data)
     if stats["total_sessions"] == 0:
-        return '<p style="color: #94a3b8; text-align: center;">No sessions logged yet. Complete a consultation and start tracking!</p>'
+        return '<p style="color:#94a3b8; text-align:center;">No sessions logged yet. Complete a consultation and start tracking!</p>'
 
-    pain_color = "#10b981" if stats.get("pain_change_pct", 0) < 0 else "#ef4444"
-    pain_arrow = "&#8595;" if stats.get("pain_change_pct", 0) < 0 else "&#8593;"
+    pain_color = "#10b981" if stats.get("pain_change_pct", 0) < 0 else "#ef4444" if stats.get("pain_change_pct", 0) > 0 else "#64748b"
+    pain_arrow = "&#8595;" if stats.get("pain_change_pct", 0) < 0 else "&#8593;" if stats.get("pain_change_pct", 0) > 0 else "&#8594;"
 
     return f"""
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin:12px 0;">
         <div class="stat-card">
             <h3>{stats['total_sessions']}</h3>
             <p>Sessions</p>
         </div>
         <div class="stat-card">
-            <h3 style="color: {pain_color};">{stats.get('current_pain', 'N/A')}</h3>
+            <h3 style="color:{pain_color}">{stats.get('current_pain', 'N/A')}/10</h3>
             <p>Current Pain {pain_arrow} {abs(stats.get('pain_change_pct', 0)):.0f}%</p>
         </div>
         <div class="stat-card">
@@ -322,72 +342,82 @@ def _milestones_html(progress_data: dict) -> str:
     if not milestones:
         return ""
     badges = "".join(f'<span class="milestone-badge">&#127942; {m["label"]}</span>' for m in milestones)
-    return f'<div style="margin-top: 12px;">{badges}</div>'
+    return f'<div style="margin:12px 0;">{badges}</div>'
 
 
-def _sessions_table(progress_data: dict) -> list:
+# ── Format insights ─────────────────────────────────────────────────────────
+
+INSIGHT_ICONS = {
+    "improvement": "&#128200;",
+    "concern": "&#9888;&#65039;",
+    "suggestion": "&#128161;",
+    "achievement": "&#127942;",
+    "info": "&#8505;&#65039;",
+    "milestone": "&#11088;",
+    "ready_to_progress": "&#128640;",
+}
+
+RECOMMENDATION_STYLES = {
+    "progress": ("background:#d1fae5; color:#065f46; border:2px solid #10b981;",
+                 "&#128640; Ready to Progress to Next Level!"),
+    "maintain": ("background:#dbeafe; color:#1e40af; border:2px solid #3b82f6;",
+                 "&#128170; Maintain Current Level — Keep Going!"),
+    "regress": ("background:#fef2f2; color:#991b1b; border:2px solid #ef4444;",
+                "&#9888; Consider Stepping Back a Level for Safety"),
+    "insufficient_data": ("background:#f1f5f9; color:#64748b; border:2px solid #cbd5e1;",
+                          "&#128202; Log More Sessions for Personalized Insights"),
+}
+
+
+def _format_insights_html(analysis: dict) -> str:
+    insights = analysis.get("insights", [])
+    if not insights:
+        return '<p style="color:#94a3b8;">No insights yet. Log sessions to generate recovery insights.</p>'
+
+    html = ""
+    for ins in insights:
+        itype = ins.get("type", "info")
+        icon = INSIGHT_ICONS.get(itype, "&#8226;")
+        cls = f"insight-{itype}"
+        html += f'<div class="insight-card {cls}">{icon} {ins["text"]}</div>'
+    return html
+
+
+def _format_recommendation_html(analysis: dict) -> str:
+    rec = analysis.get("recommendation", "insufficient_data")
+    style, text = RECOMMENDATION_STYLES.get(rec, RECOMMENDATION_STYLES["insufficient_data"])
+    return f'<div class="recommendation-box" style="{style}">{text}</div>'
+
+
+# ── Progress table ──────────────────────────────────────────────────────────
+
+def _progress_to_dataframe(progress_data: dict) -> list:
     sessions = progress_data.get("sessions", [])
+    if not sessions:
+        return []
     rows = []
-    for s in reversed(sessions):
+    for s in reversed(sessions):  # newest first
         rows.append([
             s.get("date", ""),
-            f"{s.get('pain_vas', '')}/10",
+            s.get("pain_vas", ""),
             f"{s.get('adherence_pct', 0):.0f}%",
-            f"{s.get('difficulty_rating', '')}/5",
+            s.get("difficulty_rating", ""),
+            f"L{s.get('exercise_level', '?')}",
             s.get("notes", "")[:60],
         ])
     return rows
 
 
-def _format_insights(analysis: dict) -> str:
-    insights = analysis.get("insights", [])
-    if not insights:
-        return "No insights available yet."
-    html = ""
-    type_icons = {
-        "improvement": "&#128994;", "achievement": "&#11088;",
-        "concern": "&#128308;", "suggestion": "&#128161;",
-        "info": "&#8505;", "milestone": "&#127942;",
-        "ready_to_progress": "&#128640;",
-    }
-    for ins in insights:
-        itype = ins.get("type", "info")
-        icon = type_icons.get(itype, "&#8505;")
-        html += f'<div class="insight-card insight-{itype}">{icon} {ins["text"]}</div>'
-
-    rec = analysis.get("recommendation", "maintain")
-    rec_labels = {
-        "progress": ("&#128640; Ready to Progress", "#059669", "Your data suggests you can move to the next exercise level!"),
-        "maintain": ("&#9989; Maintain Current Level", "#3b82f6", "Keep up your current routine — you're on track."),
-        "regress": ("&#9888; Consider Easier Level", "#ef4444", "Pain is increasing — a gentler level may help."),
-        "insufficient_data": ("&#8505; Need More Data", "#94a3b8", "Log at least 3 sessions for meaningful insights."),
-    }
-    label, color, desc = rec_labels.get(rec, rec_labels["maintain"])
-    html += f"""
-    <div style="margin-top: 16px; padding: 16px; border-radius: 12px;
-                background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-                border: 2px solid {color};">
-        <h4 style="color: {color}; margin: 0 0 6px 0;">{label}</h4>
-        <p style="color: #475569; margin: 0;">{desc}</p>
-    </div>
-    """
-    return html
-
-
 # ── Chat handler ────────────────────────────────────────────────────────────
 
-# Store last prescription exercises globally for checkbox population
-_last_prescribed_exercises = []
-
-
-def chat(message: str, history: list, state: dict | None):
-    global _last_prescribed_exercises
-
+def chat(message: str, history: list, state: dict | None, progress_data: dict | None):
     if not message or not message.strip():
-        return history, state, "", "", "", "", ""
+        return history, state, "", "", "", "", "", progress_data, serialize_progress(progress_data or {})
 
     if state is None:
         state = {"collected": {}, "reasoning_chain": [], "prescription_generated": False}
+    if progress_data is None:
+        progress_data = create_empty_progress()
 
     history = history + [{"role": "user", "content": message}]
     result, state = process_message(message, history, state)
@@ -404,145 +434,174 @@ def chat(message: str, history: list, state: dict | None):
         profile_md = _format_patient_profile(patient_info)
         state["collected"].update(patient_info)
 
-        # Save exercise names for progress tracking
+        # Store prescription in progress data
         plan = result["plan"]
-        _last_prescribed_exercises = [ex["name"] for ex in plan.get("exercises", [])]
-        state["prescribed_exercises"] = _last_prescribed_exercises
-        state["exercise_level"] = plan.get("level", 0)
-        state["condition"] = plan.get("condition", patient_info.get("condition", ""))
+        exercise_names = [ex["name"] for ex in plan.get("exercises", [])]
+        state["last_prescription"] = {
+            "exercise_names": exercise_names,
+            "level": plan.get("level", 0),
+            "condition": plan.get("condition", ""),
+        }
 
-        tool_names = [TOOL_LABELS.get(s["action"], s["action"])
-                      for s in reasoning_chain if "action" in s]
+        # Update progress data with condition and level
+        progress_data["condition"] = patient_info.get("condition", progress_data.get("condition", ""))
+        progress_data["exercise_level"] = plan.get("level", 0)
+
+        tool_names = [TOOL_LABELS.get(s["action"], s["action"]) for s in reasoning_chain if "action" in s]
         badge_html = " ".join(f"`{t}`" for t in tool_names)
         bot_msg = (f"**Assessment complete! Your personalized exercise plan is ready.**\n\n"
                    f"Tools used: {badge_html}\n\n"
-                   "Scroll down for your prescription with video demos.\n"
-                   "**Go to the 'My Progress' tab to start tracking your recovery!**")
+                   "Scroll down for your prescription with videos.\n"
+                   "Go to **My Progress** tab to start tracking your recovery!")
         history = history + [{"role": "assistant", "content": bot_msg}]
 
         progress = _progress_html(state.get("collected", {}))
         full_reasoning = _format_reasoning_chain(state.get("all_reasoning", []))
-        return history, state, progress, profile_md, exercises_html, explanation, full_reasoning
+
+        return (history, state, progress, profile_md, exercises_html, explanation,
+                full_reasoning, progress_data, serialize_progress(progress_data))
     else:
         bot_msg = result.get("text", str(result)) if isinstance(result, dict) else str(result)
-        tool_names = [TOOL_LABELS.get(s["action"], s["action"])
-                      for s in reasoning_chain if "action" in s]
+        tool_names = [TOOL_LABELS.get(s["action"], s["action"]) for s in reasoning_chain if "action" in s]
         if tool_names:
             badge_str = " ".join(f"`{t}`" for t in tool_names)
             bot_msg = f"[{badge_str}]\n\n{bot_msg}"
-        history = history + [{"role": "assistant", "content": bot_msg}]
 
+        history = history + [{"role": "assistant", "content": bot_msg}]
         progress = _progress_html(state.get("collected", {}))
         full_reasoning = _format_reasoning_chain(state.get("all_reasoning", []))
-        return history, state, progress, "", "", "", full_reasoning
+
+        return (history, state, progress, "", "", "", full_reasoning,
+                progress_data, serialize_progress(progress_data))
 
 
 def reset():
-    return [], None, _progress_html({}), "", "", "", "", ""
+    empty = create_empty_progress()
+    return ([], None, _progress_html({}), "", "", "", "", empty,
+            serialize_progress(empty), "", gr.update(choices=[]))
 
 
 # ── Progress tab handlers ───────────────────────────────────────────────────
 
-def load_progress_from_store(json_str):
-    """Load progress from localStorage JSON string."""
-    progress = deserialize_progress(json_str)
-    chart = generate_recovery_chart(progress)
-    table = _sessions_table(progress)
-    stats = _stats_html(progress)
-    milestones = _milestones_html(progress)
-    return progress, chart, table, stats, milestones
+def load_progress_from_store(json_str: str):
+    """Load progress from localStorage on app start."""
+    progress_data = deserialize_progress(json_str)
+    chart = generate_recovery_chart(progress_data)
+    table = _progress_to_dataframe(progress_data)
+    stats = _stats_html(progress_data)
+    milestones = _milestones_html(progress_data)
+
+    # Get exercise choices from progress data
+    exercise_choices = []
+    sessions = progress_data.get("sessions", [])
+    if sessions:
+        last = sessions[-1]
+        exercise_choices = last.get("exercises_prescribed", [])
+
+    return progress_data, chart, table, stats, milestones, gr.update(choices=exercise_choices)
 
 
-def log_session_handler(progress_data, pain_vas, exercises_done, difficulty, notes, consult_state):
+def log_session_handler(
+    progress_data: dict, pain_vas: float, exercises_done: list,
+    difficulty: int, notes: str, consultation_state: dict | None
+):
     """Log a session and update all displays."""
-    if not progress_data or not isinstance(progress_data, dict) or "sessions" not in progress_data:
-        condition = ""
-        level = 0
-        if consult_state and isinstance(consult_state, dict):
-            condition = consult_state.get("condition", "")
-            level = consult_state.get("exercise_level", 0)
-        progress_data = create_empty_progress(condition, level)
+    if progress_data is None:
+        progress_data = create_empty_progress()
 
     # Get prescribed exercises from consultation state
     prescribed = []
-    level = 0
-    condition = progress_data.get("condition", "")
-    if consult_state and isinstance(consult_state, dict):
-        prescribed = consult_state.get("prescribed_exercises", [])
-        level = consult_state.get("exercise_level", 0)
-        if not condition:
-            condition = consult_state.get("condition", "")
-            progress_data["condition"] = condition
+    level = progress_data.get("exercise_level", 0)
+    if consultation_state and "last_prescription" in consultation_state:
+        rx = consultation_state["last_prescription"]
+        prescribed = rx.get("exercise_names", [])
+        level = rx.get("level", level)
 
-    if not exercises_done:
-        exercises_done = []
+    if not prescribed and exercises_done:
+        prescribed = list(exercises_done)
 
     progress_data = log_session(
         progress_data=progress_data,
         pain_vas=pain_vas,
-        exercises_completed=exercises_done,
-        exercises_prescribed=prescribed or exercises_done,
+        exercises_completed=exercises_done or [],
+        exercises_prescribed=prescribed,
         difficulty_rating=difficulty,
         notes=notes,
         exercise_level=level,
     )
 
-    # Regenerate displays
     chart = generate_recovery_chart(progress_data)
-    table = _sessions_table(progress_data)
+    table = _progress_to_dataframe(progress_data)
     stats = _stats_html(progress_data)
     milestones = _milestones_html(progress_data)
     serialized = serialize_progress(progress_data)
 
-    # New milestones notification
-    recent_milestones = progress_data.get("milestones", [])
-    if recent_milestones:
-        latest = recent_milestones[-1]
-        status = f"**Session logged!** &#127942; New milestone: {latest['label']}"
-    else:
-        status = "**Session logged!** Keep up the great work."
+    # Check for new milestones in last entry
+    new_ms = progress_data.get("milestones", [])
+    status = "**Session logged!**"
+    if new_ms:
+        latest = new_ms[-1]
+        status += f" &#127942; **{latest['label']}**"
 
-    return progress_data, serialized, chart, table, stats, milestones, status
+    return progress_data, chart, table, stats, milestones, serialized, status
 
 
-def generate_insights_handler(progress_data, consult_state):
-    """Generate AI insights from progress data."""
-    if not progress_data or not isinstance(progress_data, dict):
-        return "No progress data available. Log some sessions first!", ""
+def get_exercise_choices(consultation_state: dict | None, progress_data: dict | None):
+    """Get exercise names for the checkbox group."""
+    choices = []
+    if consultation_state and "last_prescription" in consultation_state:
+        choices = consultation_state["last_prescription"].get("exercise_names", [])
+    elif progress_data:
+        sessions = progress_data.get("sessions", [])
+        if sessions:
+            choices = sessions[-1].get("exercises_prescribed", [])
+    return gr.update(choices=choices, value=[])
 
-    sessions = progress_data.get("sessions", [])
-    if not sessions:
-        return "No sessions logged yet. Complete some exercise sessions and log them to see insights!", ""
+
+# ── AI Insights handler ────────────────────────────────────────────────────
+
+def generate_insights_handler(progress_data: dict, consultation_state: dict | None):
+    """Run rule-based analysis, then optionally narrate with Gemma."""
+    if not progress_data or not progress_data.get("sessions"):
+        return (
+            '<p style="color:#94a3b8;">No sessions logged yet. Start tracking your progress to get AI insights!</p>',
+            _format_recommendation_html({"recommendation": "insufficient_data"}),
+            "",
+        )
 
     # Rule-based analysis
-    analysis = tool_analyze_progress(json.dumps(progress_data, default=str))
-    insights_html = _format_insights(analysis)
+    analysis = tool_analyze_progress(progress_data)
+    insights_html = _format_insights_html(analysis)
+    rec_html = _format_recommendation_html(analysis)
 
-    # AI narration via Gemma
+    # Generate AI narrative with Gemma
     ai_narrative = ""
     try:
         client = get_client()
+        condition = progress_data.get("condition", "")
         stats = analysis.get("summary", {})
         pain_trend = analysis.get("pain_trend", {})
         insights_text = "\n".join(f"- [{i['type']}] {i['text']}" for i in analysis.get("insights", []))
 
-        prompt = f"""You are PhysioGemma. Analyze this patient's recovery progress and write a warm,
-encouraging progress report (3-5 paragraphs). Reference specific numbers.
+        prompt = f"""You are PhysioGemma. Write a brief, warm, encouraging progress report (4-6 sentences)
+for this patient based on their recovery data.
 
-Patient condition: {progress_data.get('condition', 'Unknown')}
+Condition: {condition}
 Total sessions: {stats.get('total_sessions', 0)}
-Pain change: {stats.get('first_pain', '?')}/10 → {stats.get('current_pain', '?')}/10 ({stats.get('pain_change_pct', 0):.0f}%)
-Average adherence: {stats.get('avg_adherence', 0):.0f}%
-Current streak: {stats.get('current_streak', 0)} days
+Pain: {stats.get('first_pain', '?')} -> {stats.get('current_pain', '?')} ({stats.get('pain_change_pct', 0):+.0f}%)
+Adherence: {stats.get('avg_adherence', 0):.0f}%
 Current level: {stats.get('current_level', '?')}
+Streak: {stats.get('current_streak', 0)} days
+Pain trend: {pain_trend.get('trend', 'unknown')}
 Recommendation: {analysis.get('recommendation', 'maintain')}
 
-Insights:
+Key insights:
 {insights_text}
 
-Write directly to the patient using "you/your". Be specific, warm, and motivating.
-Include one concrete suggestion for improvement. End with encouragement."""
+Be specific with numbers. Be encouraging but honest. If there are concerns, address them gently.
+End with one actionable tip for their next session."""
 
+        from google.genai import types
         response = client.models.generate_content(
             model=MODEL_ID,
             contents=prompt,
@@ -552,7 +611,7 @@ Include one concrete suggestion for improvement. End with encouragement."""
     except Exception:
         ai_narrative = ""
 
-    return insights_html, ai_narrative
+    return insights_html, rec_html, ai_narrative
 
 
 # ── Build Gradio app ────────────────────────────────────────────────────────
@@ -578,45 +637,51 @@ def build_app():
         </div>
         """)
 
-        # Hidden localStorage bridge
+        # Hidden progress store for localStorage bridge
         progress_store = gr.Textbox(visible=False, elem_id="progress_store")
-        progress_state = gr.State({})
-        consult_state = gr.State(None)
+        progress_state = gr.State(None)
+        consultation_state = gr.State(None)
 
+        # ── TABS ────────────────────────────────────────────────────────
         with gr.Tabs() as tabs:
 
-            # ═══════════════════════════════════════════════════════════════
-            # TAB 1: Consultation
-            # ═══════════════════════════════════════════════════════════════
+            # ════════════════════════════════════════════════════════════
+            # TAB 1: CONSULTATION
+            # ════════════════════════════════════════════════════════════
             with gr.TabItem("Consultation", id="consult"):
 
                 with gr.Accordion("How does the PhysioGemma Agent work?", open=False):
                     gr.Markdown("""
 **PhysioGemma** is a **ReAct Agent** that autonomously conducts clinical assessments:
 
-**Agent Tools:** Safety Check | Classify Occupation | Determine Exercise Level | Generate Prescription | Progress Analysis
+**4 Agent Tools:** Safety Check, Classify Occupation, Determine Exercise Level, Generate Prescription
+**+ Progress Analysis** tool for recovery tracking insights
 
-**Flow:** Thinks → Calls Tools → Observes Results → Decides Next Step
+Every tool call is logged in the **Reasoning Chain** for full transparency.
 
-**8 Conditions:** LBP, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
+**8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
                     """)
 
                 progress_display = gr.HTML(value=_progress_html({}))
 
-                chatbot_kwargs = dict(
-                    label="PhysioGemma Agent",
-                    height=400,
-                    placeholder="Describe your pain or condition...",
-                )
                 try:
-                    chatbot = gr.Chatbot(type="messages", **chatbot_kwargs)
+                    chatbot = gr.Chatbot(
+                        label="PhysioGemma Agent",
+                        height=400,
+                        type="messages",
+                        placeholder="Describe your pain or condition to begin...",
+                    )
                 except TypeError:
-                    chatbot = gr.Chatbot(**chatbot_kwargs)
+                    chatbot = gr.Chatbot(
+                        label="PhysioGemma Agent",
+                        height=400,
+                        placeholder="Describe your pain or condition to begin...",
+                    )
 
                 with gr.Row():
                     msg = gr.Textbox(
                         label="Your message",
-                        placeholder="Example: My lower back hurts for 3 months, pain 6/10, I'm 45...",
+                        placeholder="Example: My lower back hurts for 3 months, pain 6/10, I'm 45, desk worker...",
                         lines=2, scale=4,
                     )
                     with gr.Column(scale=1, min_width=120):
@@ -627,7 +692,9 @@ def build_app():
                     examples=[
                         "My lower back has been hurting for 3 months. Pain is about 6 out of 10. I'm 45 years old.",
                         "I'm 62, knee pain for 6 months, getting worse lately",
-                        "Shoulder is frozen, can't raise my arm. 55 years old, pain started 4 months ago",
+                        "Shoulder is frozen, can't raise my arm. 55 years old, 4 months ago",
+                        "Pain shooting down my left leg from lower back, 7/10, age 38",
+                        "My heel hurts every morning, been 2 months, I stand all day at work",
                         "Elbow pain on outer side, worse when gripping, I work in IT",
                     ],
                     inputs=msg,
@@ -638,18 +705,18 @@ def build_app():
 
                 with gr.Row():
                     with gr.Column(scale=1):
-                        profile_display = gr.Markdown(label="Clinical Assessment")
+                        profile_display = gr.Markdown(label="Clinical Assessment Summary")
                     with gr.Column(scale=1):
                         reasoning_display = gr.Markdown(label="Clinical Reasoning")
 
                 exercises_display = gr.HTML(label="Exercise Prescription")
 
                 with gr.Accordion("Agent Reasoning Chain", open=False):
-                    agent_chain_display = gr.HTML()
+                    agent_chain_display = gr.HTML(label="Reasoning Chain")
 
-            # ═══════════════════════════════════════════════════════════════
-            # TAB 2: Progress Tracking
-            # ═══════════════════════════════════════════════════════════════
+            # ════════════════════════════════════════════════════════════
+            # TAB 2: MY PROGRESS
+            # ════════════════════════════════════════════════════════════
             with gr.TabItem("My Progress", id="progress"):
 
                 gr.Markdown("### Track Your Recovery")
@@ -663,25 +730,28 @@ def build_app():
                     with gr.Column(scale=1):
                         pain_slider = gr.Slider(
                             minimum=0, maximum=10, step=0.5, value=5,
-                            label="Pain Level (VAS 0-10)"
+                            label="Pain Level Today (VAS 0-10)"
                         )
                         difficulty_slider = gr.Slider(
                             minimum=1, maximum=5, step=1, value=3,
                             label="Difficulty (1=Easy, 5=Very Hard)"
                         )
                     with gr.Column(scale=1):
-                        exercises_checklist = gr.CheckboxGroup(
+                        exercises_completed = gr.CheckboxGroup(
                             choices=[],
                             label="Exercises Completed",
-                            info="Complete a consultation first to see your exercises"
                         )
 
                 session_notes = gr.Textbox(
-                    label="Session Notes",
-                    placeholder="How did you feel? Any issues?",
+                    label="Session Notes (optional)",
+                    placeholder="How did you feel? Any issues? What felt easier?",
                     lines=2,
                 )
-                log_btn = gr.Button("Log Session", variant="primary")
+
+                with gr.Row():
+                    log_btn = gr.Button("Log Session", variant="primary", size="lg")
+                    refresh_exercises_btn = gr.Button("Load My Exercises", variant="secondary", size="sm")
+
                 log_status = gr.Markdown("")
 
                 gr.Markdown("---")
@@ -690,94 +760,97 @@ def build_app():
 
                 gr.Markdown("---")
                 gr.Markdown("### Session History")
-                session_table = gr.Dataframe(
-                    headers=["Date", "Pain", "Adherence", "Difficulty", "Notes"],
+                session_history = gr.Dataframe(
+                    headers=["Date", "Pain", "Adherence", "Difficulty", "Level", "Notes"],
                     label="Past Sessions",
                     interactive=False,
                 )
 
-            # ═══════════════════════════════════════════════════════════════
-            # TAB 3: AI Insights
-            # ═══════════════════════════════════════════════════════════════
+            # ════════════════════════════════════════════════════════════
+            # TAB 3: AI INSIGHTS
+            # ════════════════════════════════════════════════════════════
             with gr.TabItem("AI Insights", id="insights"):
 
                 gr.Markdown("### Recovery Insights powered by Gemma 4")
-                gr.Markdown("*Analyzes your progress data to provide personalized recovery insights, "
-                            "trend analysis, and level progression recommendations.*")
+                gr.Markdown("*Combines rule-based analysis with AI-generated narrative*")
 
-                refresh_btn = gr.Button("Generate Insights", variant="primary", size="lg")
+                refresh_insights_btn = gr.Button("Generate Recovery Insights", variant="primary", size="lg")
 
+                recommendation_display = gr.HTML("")
                 insights_display = gr.HTML("")
+
+                gr.Markdown("---")
+                gr.Markdown("### AI Recovery Report")
                 ai_narrative_display = gr.Markdown("")
 
         # Footer
         gr.HTML("""
         <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;
                     border-top: 1px solid #e2e8f0; margin-top: 30px;">
-            <p><strong>PhysioGemma Agent</strong> &mdash; Gemma 4 Good Hackathon (Health &amp; Sciences)</p>
-            <p>ReAct Agent &bull; Tool-Calling &bull; Progress Tracking &bull; Not medical advice</p>
-            <p>Created by Gaurav Birwatkar &bull; CC-BY 4.0</p>
+            <p><strong>PhysioGemma Agent</strong> &mdash; Gemma 4 Good Hackathon
+               (Health &amp; Sciences Track)</p>
+            <p>ReAct Agent &bull; Tool-Calling &bull; Progress Tracking &bull;
+               Not medical advice</p>
+            <p>Created by Gaurav Birwatkar &bull; CC-BY 4.0 License</p>
         </div>
         """)
 
-        # ═══════════════════════════════════════════════════════════════════
-        # EVENT WIRING
-        # ═══════════════════════════════════════════════════════════════════
+        # ── Event Wiring ────────────────────────────────────────────────
 
-        # Consultation tab events
-        consult_outputs = [chatbot, consult_state, progress_display, profile_display,
-                          exercises_display, reasoning_display, agent_chain_display]
-
-        send_btn.click(
-            fn=chat,
-            inputs=[msg, chatbot, consult_state],
-            outputs=consult_outputs,
-        ).then(lambda: "", outputs=msg
-        ).then(
-            fn=lambda s: gr.update(choices=s.get("prescribed_exercises", []) if s and isinstance(s, dict) else []),
-            inputs=[consult_state],
-            outputs=[exercises_checklist],
-        )
-
-        msg.submit(
-            fn=chat,
-            inputs=[msg, chatbot, consult_state],
-            outputs=consult_outputs,
-        ).then(lambda: "", outputs=msg
-        ).then(
-            fn=lambda s: gr.update(choices=s.get("prescribed_exercises", []) if s and isinstance(s, dict) else []),
-            inputs=[consult_state],
-            outputs=[exercises_checklist],
-        )
-
-        reset_btn.click(
-            fn=reset,
-            outputs=[chatbot, consult_state, progress_display, profile_display,
-                     exercises_display, reasoning_display, agent_chain_display, msg],
-        )
-
-        # Progress tab: load from localStorage on app start
+        # Load progress from localStorage on app start
         app.load(
             fn=load_progress_from_store,
             inputs=[progress_store],
-            outputs=[progress_state, recovery_plot, session_table, stats_display, milestones_display],
+            outputs=[progress_state, recovery_plot, session_history,
+                     stats_display, milestones_display, exercises_completed],
             js=JS_LOAD_PROGRESS,
         )
 
-        # Progress tab: log session
+        # Consultation chat
+        chat_outputs = [chatbot, consultation_state, progress_display, profile_display,
+                        exercises_display, reasoning_display, agent_chain_display,
+                        progress_state, progress_store]
+
+        send_btn.click(
+            fn=chat,
+            inputs=[msg, chatbot, consultation_state, progress_state],
+            outputs=chat_outputs,
+        ).then(lambda: "", outputs=msg).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
+
+        msg.submit(
+            fn=chat,
+            inputs=[msg, chatbot, consultation_state, progress_state],
+            outputs=chat_outputs,
+        ).then(lambda: "", outputs=msg).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
+
+        reset_btn.click(
+            fn=reset,
+            outputs=[chatbot, consultation_state, progress_display, profile_display,
+                     exercises_display, reasoning_display, agent_chain_display,
+                     progress_state, progress_store, log_status, exercises_completed],
+        )
+
+        # Log session
         log_btn.click(
             fn=log_session_handler,
-            inputs=[progress_state, pain_slider, exercises_checklist,
-                    difficulty_slider, session_notes, consult_state],
-            outputs=[progress_state, progress_store, recovery_plot, session_table,
-                     stats_display, milestones_display, log_status],
+            inputs=[progress_state, pain_slider, exercises_completed,
+                    difficulty_slider, session_notes, consultation_state],
+            outputs=[progress_state, recovery_plot, session_history,
+                     stats_display, milestones_display, progress_store, log_status],
         ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
-        # Insights tab: generate insights
-        refresh_btn.click(
+        # Refresh exercises from prescription
+        refresh_exercises_btn.click(
+            fn=get_exercise_choices,
+            inputs=[consultation_state, progress_state],
+            outputs=[exercises_completed],
+        )
+
+        # AI Insights
+        refresh_insights_btn.click(
             fn=generate_insights_handler,
-            inputs=[progress_state, consult_state],
-            outputs=[insights_display, ai_narrative_display],
+            inputs=[progress_state, consultation_state],
+            outputs=[insights_display, recommendation_display, ai_narrative_display],
         )
 
     return app
