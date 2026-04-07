@@ -21,6 +21,7 @@ from exercises import (
     tool_get_exercise_prescription,
 )
 from red_flags import tool_check_red_flags, format_red_flag_warning
+from progress import tool_analyze_progress
 
 # ── Gemma 4 client setup ────────────────────────────────────────────────────
 
@@ -128,6 +129,24 @@ TOOL_DECLARATIONS = [
             required=["condition", "level", "occupation_category", "aggravating_factors"],
         ),
     ),
+    types.FunctionDeclaration(
+        name="analyze_progress",
+        description=(
+            "Analyze patient's progress tracking data to generate recovery insights, "
+            "pain trends, adherence stats, and level progression recommendations. "
+            "Call when the patient asks about their progress, recovery, or whether to change levels."
+        ),
+        parameters=types.Schema(
+            type="OBJECT",
+            properties={
+                "progress_data_json": types.Schema(
+                    type="STRING",
+                    description="JSON string of the patient's progress data with sessions array"
+                ),
+            },
+            required=["progress_data_json"],
+        ),
+    ),
 ]
 
 TOOLS = [types.Tool(function_declarations=TOOL_DECLARATIONS)]
@@ -139,6 +158,7 @@ TOOL_DISPATCH = {
     "classify_occupation": tool_classify_occupation,
     "determine_exercise_level": tool_determine_exercise_level,
     "get_exercise_prescription": tool_get_exercise_prescription,
+    "analyze_progress": tool_analyze_progress,
 }
 
 # ── Agent System Prompt ─────────────────────────────────────────────────────
@@ -189,6 +209,12 @@ STEP 4 — EXPLAIN:
   8. Home management — ice/heat, sleep position, activity pacing
   9. Red flags to watch — condition-specific warning signs
   10. Clinical disclaimer
+
+STEP 5 — PROGRESS ANALYSIS (when patient asks about recovery/progress):
+  If the patient has progress tracking data, call analyze_progress(progress_data_json).
+  Use the structured insights to provide a warm, encouraging narrative about their recovery.
+  Reference specific numbers (pain change %, adherence, streaks).
+  Suggest level changes when the tool recommends "progress" or "regress".
 
 === SITCAR FRAMEWORK ===
   S = Site (exact location, radiation, bilateral/unilateral)
