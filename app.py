@@ -104,13 +104,20 @@ def _format_prescription_html(result: dict) -> str:
         video_id = ex.get("video", "")
         video_embed = ""
         if video_id:
+            yt_url = f"https://www.youtube.com/watch?v={video_id}"
+            thumb_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
             video_embed = (
-                f'<iframe width="100%" height="200" '
-                f'src="https://www.youtube-nocookie.com/embed/{video_id}" '
-                f'frameborder="0" allowfullscreen '
-                f'style="border-radius: 8px; margin-top: 8px;" '
-                f'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
-                f'gyroscope; picture-in-picture"></iframe>'
+                f'<a href="{yt_url}" target="_blank" '
+                f'style="display:block; position:relative; margin-top:8px; '
+                f'border-radius:8px; overflow:hidden; max-width:100%;">'
+                f'<img src="{thumb_url}" '
+                f'style="width:100%; border-radius:8px; display:block;" '
+                f'alt="Watch exercise video" />'
+                f'<span style="position:absolute; top:50%; left:50%; '
+                f'transform:translate(-50%,-50%); font-size:48px; '
+                f'color:#fff; text-shadow:0 0 10px rgba(0,0,0,0.7); '
+                f'pointer-events:none;">&#9654;</span>'
+                f'</a>'
             )
 
         icon = type_icons.get(ex.get("type", ""), "&#127947;")
