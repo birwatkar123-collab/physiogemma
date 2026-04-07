@@ -429,6 +429,20 @@ def check_red_flags(text: str, condition: str = None) -> list:
     return detected
 
 
+def tool_check_red_flags(patient_message: str, condition: str = None) -> dict:
+    """Tool-callable wrapper: scan for red flags and return structured result."""
+    flags = check_red_flags(patient_message, condition)
+    if flags:
+        return {
+            "flags_found": True,
+            "count": len(flags),
+            "flags": [{"flag": f["flag"], "severity": f["severity"],
+                       "indication": f.get("indication", ""), "action": f["action"]} for f in flags],
+            "warning": format_red_flag_warning(flags),
+        }
+    return {"flags_found": False, "count": 0, "flags": [], "warning": None}
+
+
 def format_red_flag_warning(flags: list) -> str:
     """Format detected red flags into a clear warning message."""
     if not flags:

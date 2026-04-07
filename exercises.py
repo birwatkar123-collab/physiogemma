@@ -990,3 +990,81 @@ def determine_level(pain_vas: float, age: int, is_chronic: bool, comorbidity_cou
         level = 4
 
     return level
+
+
+# ── Tool-callable wrappers for Agent mode ───────────────────────────────────
+
+def tool_classify_occupation(occupation_description: str) -> dict:
+    """Classify occupation into physical demand category."""
+    occ_lower = occupation_description.lower()
+    if any(kw in occ_lower for kw in ["desk", "office", "computer", "software", "it ", "bank", "account", "developer", "programmer", "analyst", "data"]):
+        return {"category": "sedentary", "description": "Desk/office worker — prolonged sitting"}
+    elif any(kw in occ_lower for kw in ["teacher", "retail", "shop", "cook", "homemaker", "housewife", "student", "cashier", "receptionist"]):
+        return {"category": "light", "description": "Light physical demands — standing/walking"}
+    elif any(kw in occ_lower for kw in ["nurse", "warehouse", "factory", "delivery", "kitchen", "mechanic", "technician", "plumber", "electrician"]):
+        return {"category": "moderate", "description": "Moderate physical demands — lifting/carrying"}
+    elif any(kw in occ_lower for kw in ["construction", "farm", "labour", "labor", "loading", "mining", "porter", "mason", "brick"]):
+        return {"category": "heavy", "description": "Heavy physical demands — sustained heavy lifting"}
+    return {"category": "unknown", "description": "Could not classify — will use general plan"}
+
+
+def tool_determine_exercise_level(
+    pain_vas: float, age: int, is_chronic: bool, comorbidity_count: int,
+    tendency: str, characteristic: str, has_relevant_surgery: bool
+) -> dict:
+    """Determine evidence-based exercise level with full clinical reasoning."""
+    level = determine_level(pain_vas, age, is_chronic, comorbidity_count)
+    reasoning_parts = [f"Base level from Boonstra VAS cutoffs: VAS {pain_vas} -> Level {level}"]
+
+    if tendency == "worsening":
+        level = max(level - 1, 1)
+        reasoning_parts.append("Tendency worsening: -1 level (conservative)")
+    if characteristic in ("sharp", "shooting"):
+        level = max(level - 1, 1)
+        reasoning_parts.append(f"Pain characteristic '{characteristic}': -1 level (neural involvement risk)")
+    if has_relevant_surgery:
+        level = max(level - 1, 1)
+        reasoning_parts.append("Relevant surgical history: -1 level (post-surgical caution)")
+
+    cond_levels = {1: "Gentle Mobility", 2: "Moderate Pain", 3: "Moderate Function",
+                   4: "Active Rehab", 5: "Return to Activity"}
+
+    return {
+        "level": level,
+        "label": cond_levels.get(level, f"Level {level}"),
+        "reasoning": " | ".join(reasoning_parts)
+    }
+
+
+def tool_get_exercise_prescription(
+    condition: str, level: int, occupation_category: str,
+    aggravating_factors: list, height_cm: float = 0, weight_kg: float = 0
+) -> dict:
+    """Get full exercise prescription with all modifiers applied."""
+    plan = get_exercise_plan(condition, level)
+    if "error" in plan:
+        return plan
+
+    plan = apply_modifiers(plan, occupation_category, aggravating_factors, level)
+
+    bmi_info = calculate_bmi(height_cm or 0, weight_kg or 0)
+    if bmi_info["bmi"] and bmi_info.get("modifier_key"):
+        plan = apply_bmi_modifiers(plan, bmi_info, condition, level)
+
+    exercises_summary = [
+        {"name": ex["name"], "sets": ex["sets"], "reps": ex["reps"],
+         "type": ex.get("type", "general"), "instruction": ex.get("instruction", ""),
+         "video": ex.get("video", "")}
+        for ex in plan["exercises"]
+    ]
+
+    return {
+        "condition": plan.get("condition", condition),
+        "level": level,
+        "label": plan.get("label", ""),
+        "goal": plan.get("goal", ""),
+        "exercises": exercises_summary,
+        "modifier_notes": plan.get("modifier_notes", []),
+        "bmi_info": {"bmi": bmi_info.get("bmi"), "category": bmi_info.get("category")},
+        "total_exercises": len(exercises_summary)
+    }

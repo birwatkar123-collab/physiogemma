@@ -1,11 +1,10 @@
 """
-PhysioGemma — AI Physiotherapy Assistant powered by Gemma 4 (v2)
-=================================================================
+PhysioGemma — AI Physiotherapy Agent powered by Gemma 4
+========================================================
 Kaggle Gemma 4 Good Hackathon | Health & Sciences Track
 
-Multi-step clinical assessment using SITCAR pain evaluation framework,
-medical/surgical history, and functional assessment before prescribing
-personalized, evidence-based exercise plans.
+ReAct agent architecture with tool-calling, structured reasoning chain,
+SITCAR pain evaluation, and evidence-based exercise prescription.
 
 Run: python app.py
 """
@@ -44,53 +43,136 @@ CSS = """
     font-size: 13px;
     color: #92400e;
 }
-.stage-indicator {
-    display: flex; gap: 8px; justify-content: center;
-    margin: 10px 0 20px 0;
+.reasoning-step {
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 6px 0;
+    font-size: 13px;
+    line-height: 1.5;
 }
-.stage-pill {
-    padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+.reasoning-action {
+    background: #dbeafe;
+    border-left: 4px solid #3b82f6;
 }
-.stage-active { background: #3b82f6; color: white; }
-.stage-done { background: #10b981; color: white; }
-.stage-pending { background: #e2e8f0; color: #94a3b8; }
+.reasoning-observation {
+    background: #d1fae5;
+    border-left: 4px solid #10b981;
+    font-family: monospace;
+    font-size: 12px;
+}
+.reasoning-warning {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+}
+.tool-badge {
+    display: inline-block;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 2px 4px;
+}
+.progress-bar {
+    display: flex; gap: 6px; justify-content: center;
+    margin: 10px 0 20px 0; flex-wrap: wrap;
+}
+.progress-pill {
+    padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.progress-done { background: #10b981; color: white; }
+.progress-pending { background: #e2e8f0; color: #94a3b8; }
 footer { display: none !important; }
 """
 
-# ── Stage indicator HTML ─────────────────────────────────────────────────────
+# ── Progress indicator ──────────────────────────────────────────────────────
 
-STAGE_LABELS = {
-    "initial": "Pain Description",
-    "sitcar": "SITCAR Evaluation",
-    "medical_history": "Medical History",
-    "functional": "Functional Assessment",
-    "prescription": "Your Exercise Plan",
+DATA_FIELDS = {
+    "Condition": "condition",
+    "Pain (VAS)": "pain_vas",
+    "Age": "age",
+    "Tendency": "tendency",
+    "Characteristic": "characteristic",
+    "Occupation": "occupation",
+    "Medical Hx": "comorbidities",
+    "Prescription": "level",
 }
 
-def _stage_html(current_stage: str) -> str:
-    stages = list(STAGE_LABELS.items())
-    current_idx = next((i for i, (k, _) in enumerate(stages) if k == current_stage), 0)
 
+def _progress_html(collected: dict) -> str:
+    """Dynamic progress based on what data the agent has collected."""
     pills = []
-    for i, (key, label) in enumerate(stages):
-        if i < current_idx:
-            cls = "stage-done"
-            icon = "&#10003;"
-        elif i == current_idx:
-            cls = "stage-active"
-            icon = str(i + 1)
-        else:
-            cls = "stage-pending"
-            icon = str(i + 1)
-        pills.append(f'<span class="stage-pill {cls}">{icon}. {label}</span>')
+    for label, key in DATA_FIELDS.items():
+        # Check both direct key and alternatives
+        has_data = bool(collected.get(key))
+        if key == "pain_vas":
+            has_data = bool(collected.get("pain_vas") or collected.get("intensity_vas"))
+        if key == "comorbidities":
+            has_data = collected.get("comorbidities") is not None or collected.get("comorbidity_count") is not None
+        if key == "occupation":
+            has_data = bool(collected.get("occupation") or collected.get("physical_demands"))
 
-    return f'<div class="stage-indicator">{"".join(pills)}</div>'
+        cls = "progress-done" if has_data else "progress-pending"
+        icon = "&#10003;" if has_data else "&#9679;"
+        pills.append(f'<span class="progress-pill {cls}">{icon} {label}</span>')
+
+    return f'<div class="progress-bar">{"".join(pills)}</div>'
 
 
-# ── Format prescription result ───────────────────────────────────────────────
+# ── Format reasoning chain ──────────────────────────────────────────────────
+
+TOOL_LABELS = {
+    "check_red_flags": "Safety Check",
+    "classify_occupation": "Classify Occupation",
+    "determine_exercise_level": "Determine Level",
+    "get_exercise_prescription": "Generate Prescription",
+}
+
+
+def _format_reasoning_chain(chain: list) -> str:
+    """Format the agent's reasoning chain as styled HTML."""
+    if not chain:
+        return ""
+
+    html = '<div style="margin-top: 8px;">'
+    html += '<h4 style="color: #475569; margin-bottom: 8px;">Agent Reasoning Chain</h4>'
+
+    for step in chain:
+        if "action" in step:
+            tool_label = TOOL_LABELS.get(step["action"], step["action"])
+            args_str = ", ".join(f"{k}={v}" for k, v in step.get("args", {}).items()
+                                if k != "patient_message")
+            if len(args_str) > 120:
+                args_str = args_str[:120] + "..."
+            html += (
+                f'<div class="reasoning-step reasoning-action">'
+                f'<strong>Action:</strong> <span class="tool-badge">{tool_label}</span>'
+            )
+            if args_str:
+                html += f' <span style="color:#64748b;">({args_str})</span>'
+            html += '</div>'
+
+        elif "observation" in step:
+            tool_label = TOOL_LABELS.get(step["observation"], step["observation"])
+            result_str = step.get("result", "")
+            is_warning = "RED FLAG" in result_str.upper()
+            cls = "reasoning-warning" if is_warning else "reasoning-observation"
+            html += (
+                f'<div class="reasoning-step {cls}">'
+                f'<strong>Observation ({tool_label}):</strong> {result_str}'
+                f'</div>'
+            )
+
+    html += '</div>'
+    return html
+
+
+# ── Format prescription exercises ───────────────────────────────────────────
 
 def _format_prescription_html(result: dict) -> str:
-    """Format exercise cards with video embeds."""
+    """Format exercise cards with clickable YouTube thumbnails."""
     plan = result["plan"]
     exercises_html = ""
 
@@ -134,35 +216,45 @@ def _format_prescription_html(result: dict) -> str:
     return exercises_html
 
 
+# ── Format patient profile ──────────────────────────────────────────────────
+
 def _format_patient_profile(info: dict) -> str:
     """Format patient profile as markdown table."""
-    condition_name = EXERCISES.get(info.get("condition", ""), {}).get("name", info.get("condition", "Unknown"))
-    comorbidities = ", ".join(info.get("comorbidities", [])) or "None"
-    surgeries = ", ".join(info.get("surgical_history", [])) or "None"
-    aggravating = ", ".join(info.get("aggravating_factors", [])) or "Not specified"
-    reducing = ", ".join(info.get("reducing_factors", [])) or "Not specified"
-    limited = ", ".join(info.get("limited_activities", [])) or "Not specified"
+    condition = info.get("condition", "Unknown")
+    condition_name = EXERCISES.get(condition, {}).get("name", condition)
+    comorbidities = ", ".join(info.get("comorbidities", [])) if isinstance(info.get("comorbidities"), list) else "N/A"
+    surgeries = ", ".join(info.get("surgical_history", [])) if isinstance(info.get("surgical_history"), list) else "None"
+    aggravating = ", ".join(info.get("aggravating_factors", [])) if isinstance(info.get("aggravating_factors"), list) else "N/A"
+    reducing = ", ".join(info.get("reducing_factors", [])) if isinstance(info.get("reducing_factors"), list) else "N/A"
+    limited = ", ".join(info.get("limited_activities", [])) if isinstance(info.get("limited_activities"), list) else "N/A"
 
     plan_label = ""
-    if "level" in info:
-        cond = EXERCISES.get(info.get("condition", ""), {})
-        lvl = cond.get("levels", {}).get(info["level"], {})
-        plan_label = f"Level {info['level']} — {lvl.get('label', '')}"
+    level = info.get("level")
+    if level:
+        cond = EXERCISES.get(condition, {})
+        lvl = cond.get("levels", {}).get(level, {})
+        plan_label = f"Level {level} — {lvl.get('label', info.get('level_label', ''))}"
 
     height = info.get('height_cm')
     weight = info.get('weight_kg')
     body_info = f"{height} cm / {weight} kg" if height and weight else "N/A"
+
+    vas = info.get('intensity_vas', info.get('pain_vas', 'N/A'))
+    is_chronic = info.get('is_chronic')
+    duration = info.get('duration_months', 'N/A')
+    chronicity = ""
+    if is_chronic is not None:
+        chronicity = f" ({'Chronic' if is_chronic else 'Acute'})"
 
     return f"""### Clinical Assessment Summary
 
 | Category | Detail |
 |----------|--------|
 | **Condition** | {condition_name} |
-| **Pain Site** | {info.get('site_detail', 'N/A')} |
-| **Intensity (VAS)** | {info.get('intensity_vas', info.get('pain_vas', 'N/A'))}/10 |
+| **Intensity (VAS)** | {vas}/10 |
 | **Tendency** | {info.get('tendency', 'N/A')} |
 | **Characteristic** | {info.get('characteristic', 'N/A')} |
-| **Duration** | {info.get('duration_months', 'N/A')} months ({'Chronic' if info.get('is_chronic') else 'Acute'}) |
+| **Duration** | {duration} months{chronicity} |
 | **Aggravating** | {aggravating} |
 | **Reducing** | {reducing} |
 | **Age** | {info.get('age', 'N/A')} |
@@ -170,66 +262,88 @@ def _format_patient_profile(info: dict) -> str:
 | **Comorbidities** | {comorbidities} |
 | **Surgical History** | {surgeries} |
 | **Occupation** | {info.get('occupation', 'N/A')} ({info.get('physical_demands', 'N/A')} demands) |
-| **Limited Activities** | {limited} |
-| **Exercise History** | {info.get('exercise_history', 'N/A')} |
-| **Goals** | {info.get('goals', 'N/A')} |
 | **Prescription** | {plan_label} |
 """
 
 
-# ── Main chat function ───────────────────────────────────────────────────────
+# ── Main chat function ──────────────────────────────────────────────────────
 
 def chat(message: str, history: list, state: dict | None):
-    """Handle chat messages through multi-step assessment."""
+    """Handle chat messages through agent-based assessment."""
     if not message or not message.strip():
-        return history, state, "", "", "", ""
+        return history, state, "", "", "", "", ""
 
     if state is None:
-        state = {"stage": "initial", "collected": {}, "conversation": ""}
+        state = {"collected": {}, "reasoning_chain": [], "prescription_generated": False}
 
     # Add user message to chat
     history = history + [{"role": "user", "content": message}]
 
-    # Process through engine
+    # Process through agent engine
     result, state = process_message(message, history, state)
 
-    # Check if result is a prescription (dict) or text response (str)
+    # Extract reasoning chain
+    reasoning_chain = result.get("reasoning_chain", []) if isinstance(result, dict) else []
+    reasoning_html = _format_reasoning_chain(reasoning_chain)
+
+    # Accumulate reasoning chains across turns
+    state.setdefault("all_reasoning", [])
+    state["all_reasoning"].extend(reasoning_chain)
+
+    # Check if result contains a prescription
     if isinstance(result, dict) and "plan" in result:
-        # Prescription received — format all outputs
         explanation = result.get("explanation", "")
         patient_info = result.get("patient_info", {})
         exercises_html = _format_prescription_html(result)
         profile_md = _format_patient_profile(patient_info)
 
-        # Add summary to chat
-        bot_msg = ("**Assessment complete! Your personalized exercise plan is ready.**\n\n"
+        # Merge patient info into collected
+        state["collected"].update(patient_info)
+
+        # Build tool badges for chat display
+        tool_names = [TOOL_LABELS.get(s["action"], s["action"])
+                      for s in reasoning_chain if "action" in s]
+        badge_html = " ".join(f"`{t}`" for t in tool_names)
+        bot_msg = (f"**Assessment complete! Your personalized exercise plan is ready.**\n\n"
+                   f"Tools used: {badge_html}\n\n"
                    "Scroll down to see your prescription with video demonstrations, "
                    "clinical reasoning, and safety guidelines.\n\n"
                    "Feel free to ask any follow-up questions!")
         history = history + [{"role": "assistant", "content": bot_msg}]
 
-        stage_html = _stage_html("prescription")
+        progress = _progress_html(state.get("collected", {}))
+        full_reasoning = _format_reasoning_chain(state.get("all_reasoning", []))
 
-        return history, state, stage_html, profile_md, exercises_html, explanation
+        return history, state, progress, profile_md, exercises_html, explanation, full_reasoning
+
     else:
         # Conversational response
-        bot_msg = result if isinstance(result, str) else str(result)
+        bot_msg = result.get("text", str(result)) if isinstance(result, dict) else str(result)
+
+        # Add tool badges if tools were called
+        tool_names = [TOOL_LABELS.get(s["action"], s["action"])
+                      for s in reasoning_chain if "action" in s]
+        if tool_names:
+            badge_str = " ".join(f"`{t}`" for t in tool_names)
+            bot_msg = f"[{badge_str}]\n\n{bot_msg}"
+
         history = history + [{"role": "assistant", "content": bot_msg}]
 
-        stage_html = _stage_html(state.get("stage", "initial"))
+        progress = _progress_html(state.get("collected", {}))
+        full_reasoning = _format_reasoning_chain(state.get("all_reasoning", []))
 
-        return history, state, stage_html, "", "", ""
+        return history, state, progress, "", "", "", full_reasoning
 
 
 def reset():
     """Reset the conversation."""
-    return [], None, _stage_html("initial"), "", "", "", ""
+    return [], None, _progress_html({}), "", "", "", "", ""
 
 
-# ── Build Gradio app ─────────────────────────────────────────────────────────
+# ── Build Gradio app ────────────────────────────────────────────────────────
 
 def build_app():
-    with gr.Blocks(theme=THEME, css=CSS, title="PhysioGemma — AI Physiotherapy Assistant") as app:
+    with gr.Blocks(title="PhysioGemma — AI Physiotherapy Agent") as app:
 
         # Hero
         gr.HTML("""
@@ -240,51 +354,50 @@ def build_app():
                 &#129658; PhysioGemma
             </h1>
             <p style="font-size: 1.1em; color: #475569; margin: 8px 0 0 0;">
-                AI Physiotherapy Assistant powered by <strong>Gemma 4</strong>
+                AI Physiotherapy <strong>Agent</strong> powered by <strong>Gemma 4</strong>
             </p>
             <p style="font-size: 0.85em; color: #64748b; margin: 4px 0 0 0;">
-                SITCAR Pain Evaluation &bull; Occupation-Adapted Prescriptions &bull;
-                Red Flag Detection &bull; English &amp; Hindi
+                ReAct Agent &bull; Tool-Calling &bull; Structured Reasoning &bull;
+                SITCAR Evaluation &bull; 8 Conditions &bull; English &amp; Hindi
             </p>
         </div>
         """)
 
         # How it works
-        with gr.Accordion("How does PhysioGemma work?", open=False):
+        with gr.Accordion("How does the PhysioGemma Agent work?", open=False):
             gr.Markdown("""
-**PhysioGemma** conducts a **4-step clinical assessment** like a real physiotherapist:
+**PhysioGemma** is a **ReAct Agent** (not just a chatbot) that autonomously conducts clinical assessments:
 
-1. **Pain Description** — Tell us about your pain in your own words
-2. **SITCAR Evaluation** — We assess Site, Intensity, Tendency, Characteristic, Aggravating & Reducing factors
-3. **Medical History** — Past conditions, surgeries, medications
-4. **Functional Assessment** — Occupation, daily limitations, goals
+**Agent Architecture:**
+- **Thinks** — Decides what information is needed next
+- **Acts** — Calls clinical tools (red flag scanner, level calculator, prescription generator)
+- **Observes** — Processes tool results and decides next action
+- **Explains** — Provides clinical reasoning for every decision
 
-Then **Gemma 4** synthesizes everything into an evidence-based exercise prescription with full clinical reasoning.
+**4 Agent Tools:**
+1. **Safety Check** — Scans every message for clinical red flags (cauda equina, fractures, cardiac, infections)
+2. **Classify Occupation** — Categorizes work demands (sedentary/light/moderate/heavy)
+3. **Determine Level** — Evidence-based exercise level using Boonstra VAS cutoffs + ACSM + ADA modifiers
+4. **Generate Prescription** — Personalized exercises with occupation, aggravation, and BMI adaptations
 
-**Red Flag Detection:** PhysioGemma screens for serious warning signs (cauda equina, fractures, infections, cardiac symptoms) and advises immediate medical consultation when detected.
-
-**Occupation-Based Modifications:** Exercises are tailored to your work demands — desk workers get posture correction, manual laborers get safe lifting drills, and standing workers get fatigue-reducing exercises.
-
-**Aggravation-Aware Prescriptions:** If sitting, bending, lifting, or stairs worsen your pain, the exercise plan automatically adapts — swapping aggravating movements for safer alternatives.
+**Structured Reasoning Chain:** Every tool call and observation is logged and displayed transparently.
 
 **8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
 
 **Clinical references:** Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews, Canadian C-Spine Rules, McKenzie Method
             """)
 
-        # Stage indicator
-        stage_display = gr.HTML(value=_stage_html("initial"))
+        # Progress indicator
+        progress_display = gr.HTML(value=_progress_html({}))
 
         # State
         state = gr.State(None)
 
         # Chat
         chatbot = gr.Chatbot(
-            label="PhysioGemma Consultation",
-            height=400,
-            type="messages",
-            placeholder="Describe your pain or condition to begin your assessment...",
-            avatar_images=(None, "https://em-content.zobj.net/source/twitter/376/stethoscope_1fa7a.png"),
+            label="PhysioGemma Agent Consultation",
+            height=420,
+            placeholder="Describe your pain or condition to begin the agent assessment...",
         )
 
         with gr.Row():
@@ -302,18 +415,16 @@ Then **Gemma 4** synthesizes everything into an evidence-based exercise prescrip
             examples=[
                 "My lower back has been hurting for 3 months. Pain is about 6 out of 10. I'm 45 years old.",
                 "I'm 62, knee pain for 6 months, getting worse lately",
-                "मेरी गर्दन में 2 हफ्ते से दर्द है, बहुत तेज़ दर्द है",
                 "Shoulder is frozen, can't raise my arm. 55 years old, pain started 4 months ago",
                 "Pain shooting down my left leg from lower back, 7/10, age 38",
                 "My heel hurts every morning when I step out of bed, been 2 months",
-                "Hip pain for 1 year, 65 years old, hard to walk and climb stairs",
                 "Elbow pain on outer side, worse when gripping or typing, I work in IT",
             ],
             inputs=msg,
             label="Try these examples:",
         )
 
-        # Results section (hidden until prescription)
+        # Results section
         gr.HTML("<hr style='margin: 20px 0; border-color: #e2e8f0;'>")
 
         with gr.Row():
@@ -324,8 +435,13 @@ Then **Gemma 4** synthesizes everything into an evidence-based exercise prescrip
 
         exercises_display = gr.HTML(label="Exercise Prescription")
 
+        # Agent reasoning chain (collapsible)
+        with gr.Accordion("Agent Reasoning Chain (Tool Calls & Observations)", open=False):
+            agent_chain_display = gr.HTML(label="Reasoning Chain")
+
         # Wire up events
-        outputs = [chatbot, state, stage_display, profile_display, exercises_display, reasoning_display]
+        outputs = [chatbot, state, progress_display, profile_display,
+                   exercises_display, reasoning_display, agent_chain_display]
 
         send_btn.click(
             fn=chat,
@@ -341,16 +457,17 @@ Then **Gemma 4** synthesizes everything into an evidence-based exercise prescrip
 
         reset_btn.click(
             fn=reset,
-            outputs=[chatbot, state, stage_display, profile_display, exercises_display, reasoning_display, msg],
+            outputs=[chatbot, state, progress_display, profile_display,
+                     exercises_display, reasoning_display, agent_chain_display, msg],
         )
 
         # Footer
         gr.HTML("""
         <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;
                     border-top: 1px solid #e2e8f0; margin-top: 30px;">
-            <p><strong>PhysioGemma</strong> &mdash; Built for the Gemma 4 Good Hackathon
+            <p><strong>PhysioGemma Agent</strong> &mdash; Built for the Gemma 4 Good Hackathon
                (Health &amp; Sciences Track)</p>
-            <p>SITCAR Assessment &bull; Gemma 4 26B &bull; Evidence-based guidelines &bull;
+            <p>ReAct Agent &bull; Tool-Calling &bull; Gemma 4 &bull; Evidence-based guidelines &bull;
                Not medical advice</p>
             <p>Created by Gaurav Birwatkar &bull; CC-BY 4.0 License</p>
         </div>
@@ -367,4 +484,6 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
+        theme=THEME,
+        css=CSS,
     )
