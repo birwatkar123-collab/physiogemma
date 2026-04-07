@@ -35,7 +35,7 @@ def get_client():
     return genai.Client(api_key=api_key)
 
 
-MODEL_ID = "gemma-4-27b-it"
+MODEL_ID = "gemma-4-26b-a4b-it"
 
 # ── Tool Declarations for Gemma Function Calling ────────────────────────────
 
