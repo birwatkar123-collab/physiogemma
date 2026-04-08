@@ -23,6 +23,7 @@ from exercises import (
 )
 from red_flags import tool_check_red_flags, format_red_flag_warning
 from progress import tool_analyze_progress
+from knowledge_base import retrieve_knowledge
 
 # ── Gemma 4 client setup ────────────────────────────────────────────────────
 
@@ -301,9 +302,21 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                 parts=[types.Part.from_text(text=msg["content"])]
             ))
 
+        # RAG: inject relevant clinical knowledge when condition is known
+        condition = state.get("collected", {}).get("condition", "")
+        retrieved_knowledge = retrieve_knowledge(condition)
+        if retrieved_knowledge:
+            system_prompt = (
+                f"{AGENT_SYSTEM_PROMPT}\n\n"
+                f"=== RELEVANT CLINICAL KNOWLEDGE (use to improve accuracy) ===\n"
+                f"{retrieved_knowledge}"
+            )
+        else:
+            system_prompt = AGENT_SYSTEM_PROMPT
+
         # Optimized config: lower tokens + temperature for speed
         config = types.GenerateContentConfig(
-            system_instruction=AGENT_SYSTEM_PROMPT,
+            system_instruction=system_prompt,
             tools=TOOLS,
             tool_config=types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(mode="AUTO")
@@ -365,6 +378,10 @@ def process_message(message: str, history: list, state: dict) -> tuple:
 
                     if tool_name == "classify_occupation" and "category" in result:
                         state["collected"]["physical_demands"] = result["category"]
+
+                    # Track condition from tool args for RAG on subsequent turns
+                    if "condition" in tool_args and tool_args["condition"]:
+                        state["collected"]["condition"] = tool_args["condition"]
 
                     if tool_name == "check_red_flags" and result.get("flags_found"):
                         state["collected"]["red_flags_detected"] = result["flags"]
