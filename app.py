@@ -227,7 +227,7 @@ def _format_prescription_html(result: dict) -> str:
         "plyometric": "&#127939;"
     }
     for ex in plan["exercises"]:
-        video_id = ex.get("video", "")
+        video_id = ex.get("video") or ex.get("video_id") or ""
         video_embed = ""
         if video_id:
             yt_url = f"https://www.youtube.com/watch?v={video_id}"
