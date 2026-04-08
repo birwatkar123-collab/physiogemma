@@ -621,11 +621,14 @@ OCCUPATION_ADDONS = {
         "description": "Desk/office worker — prolonged sitting",
         "exercises": [
             {"name": "Chin Tuck (Postural)", "sets": 3, "reps": "10, hold 5s", "type": "posture",
-             "instruction": "Sit tall. Pull chin straight back (make a double chin). Hold 5 seconds. Corrects forward head posture from screen work."},
+             "instruction": "Sit tall. Pull chin straight back (make a double chin). Hold 5 seconds. Corrects forward head posture from screen work.",
+             "video_id": "7rnlAVhAK-8"},
             {"name": "Seated Thoracic Extension", "sets": 2, "reps": "10", "type": "mobility",
-             "instruction": "Sit with hands behind head. Gently arch upper back over chair back. Counteracts hunched desk posture."},
+             "instruction": "Sit with hands behind head. Gently arch upper back over chair back. Counteracts hunched desk posture.",
+             "video_id": "kCoTeRB8c-g"},
             {"name": "Standing Hip Flexor Stretch", "sets": 2, "reps": "30s each side", "type": "stretching",
-             "instruction": "Step one foot forward into lunge. Push hips forward gently. Relieves tight hip flexors from prolonged sitting."},
+             "instruction": "Step one foot forward into lunge. Push hips forward gently. Relieves tight hip flexors from prolonged sitting.",
+             "video_id": "ljCDEb_MIto"},
         ],
         "advice": "Take a 2-minute movement break every 30 minutes. Set a timer. Stand, walk, or do one stretch."
     },
@@ -633,9 +636,11 @@ OCCUPATION_ADDONS = {
         "description": "Light physical work — teacher, retail, homemaker",
         "exercises": [
             {"name": "Scapular Squeeze", "sets": 3, "reps": "10, hold 5s", "type": "posture",
-             "instruction": "Stand tall. Squeeze shoulder blades together. Hold 5 seconds. Builds postural endurance for standing tasks."},
+             "instruction": "Stand tall. Squeeze shoulder blades together. Hold 5 seconds. Builds postural endurance for standing tasks.",
+             "video_id": "QN1oZVMMRjE"},
             {"name": "Calf Raises", "sets": 2, "reps": "15", "type": "strengthening",
-             "instruction": "Stand on both feet. Rise onto toes slowly. Lower slowly. Reduces leg fatigue from standing."},
+             "instruction": "Stand on both feet. Rise onto toes slowly. Lower slowly. Reduces leg fatigue from standing.",
+             "video_id": "fZYTVO9-Ggk"},
         ],
         "advice": "Wear supportive footwear. Alternate between sitting and standing tasks when possible."
     },
@@ -643,9 +648,11 @@ OCCUPATION_ADDONS = {
         "description": "Moderate physical work — nursing, warehouse, cooking",
         "exercises": [
             {"name": "McGill Big 3 — Curl-up", "sets": 3, "reps": "8", "type": "stability",
-             "instruction": "Lie on back, one knee bent. Place hands under lower back. Lift head and shoulders slightly. Builds spine-protective core endurance."},
+             "instruction": "Lie on back, one knee bent. Place hands under lower back. Lift head and shoulders slightly. Builds spine-protective core endurance.",
+             "video_id": "vLpHJ1Cxj6k"},
             {"name": "Farmer's Walk (light)", "sets": 2, "reps": "30s", "type": "functional",
-             "instruction": "Hold light weights at sides. Walk with tall posture, bracing core. Trains safe carrying mechanics."},
+             "instruction": "Hold light weights at sides. Walk with tall posture, bracing core. Trains safe carrying mechanics.",
+             "video_id": "p5MNNosenJc"},
         ],
         "advice": "Use proper body mechanics: bend knees not back, keep loads close to body, avoid twisting under load."
     },
@@ -653,11 +660,14 @@ OCCUPATION_ADDONS = {
         "description": "Heavy physical work — construction, farming, loading",
         "exercises": [
             {"name": "Hip Hinge Drill", "sets": 3, "reps": "10", "type": "functional",
-             "instruction": "Stand with dowel along spine. Hinge at hips pushing them back, slight knee bend. Trains safe lifting pattern."},
+             "instruction": "Stand with dowel along spine. Hinge at hips pushing them back, slight knee bend. Trains safe lifting pattern.",
+             "video_id": "U4AucqhYD_0"},
             {"name": "Pallof Press Anti-Rotation", "sets": 3, "reps": "10 each side", "type": "stability",
-             "instruction": "Stand with band at chest height. Press forward resisting rotation. Builds anti-rotation strength for heavy lifting."},
+             "instruction": "Stand with band at chest height. Press forward resisting rotation. Builds anti-rotation strength for heavy lifting.",
+             "video_id": "99evyH71IWs"},
             {"name": "Goblet Squat", "sets": 3, "reps": "10", "type": "functional",
-             "instruction": "Hold weight at chest. Squat down keeping chest up. Trains proper squat-to-lift mechanics."},
+             "instruction": "Hold weight at chest. Squat down keeping chest up. Trains proper squat-to-lift mechanics.",
+             "video_id": "gCESNsDsbqk"},
         ],
         "advice": "Always warm up before shifts. Use lifting aids when available. Report workplace ergonomic concerns."
     },
@@ -673,7 +683,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],  # Don't remove exercises, but add compensatory ones
         "add": [
             {"name": "Prone Press-Up (McKenzie)", "sets": 2, "reps": "10", "type": "mobility",
-             "instruction": "Lie face down. Press upper body up with arms, keeping hips on floor. Counteracts flexion loading from sitting."},
+             "instruction": "Lie face down. Press upper body up with arms, keeping hips on floor. Counteracts flexion loading from sitting.",
+             "video_id": "8k-ZmkKm0DY"},
         ],
         "swap_rules": {},
         "note": "Avoid prolonged sitting during exercises. Use standing or lying alternatives where possible."
@@ -682,7 +693,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],
         "add": [
             {"name": "Hip Hinge Retraining", "sets": 2, "reps": "10", "type": "functional",
-             "instruction": "Practice hinging at hips instead of rounding lower back. Use wall touch cue: stand a foot from wall, push hips back to touch wall."},
+             "instruction": "Practice hinging at hips instead of rounding lower back. Use wall touch cue: stand a foot from wall, push hips back to touch wall.",
+             "video_id": "2W_gXhut5S8"},
         ],
         "swap_rules": {"Knee-to-Chest Stretch": None},  # Remove: involves flexion
         "note": "Minimize forward bending in exercises. Focus on hip hinging instead of spinal flexion."
@@ -697,7 +709,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],
         "add": [
             {"name": "Supine Core Activation", "sets": 2, "reps": "10, hold 10s", "type": "stability",
-             "instruction": "Lie on back. Draw belly button in gently. Hold 10 seconds while breathing normally. Builds core support without standing load."},
+             "instruction": "Lie on back. Draw belly button in gently. Hold 10 seconds while breathing normally. Builds core support without standing load.",
+             "video_id": "2W_gXhut5S8"},
         ],
         "swap_rules": {},
         "note": "Prioritize lying and seated exercises. Limit standing exercise duration initially."
@@ -706,7 +719,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],
         "add": [
             {"name": "Dead Bug", "sets": 2, "reps": "8 each side", "type": "stability",
-             "instruction": "Lie on back, arms up, knees at 90°. Slowly lower opposite arm and leg while keeping back flat. Builds safe lifting foundation."},
+             "instruction": "Lie on back, arms up, knees at 90°. Slowly lower opposite arm and leg while keeping back flat. Builds safe lifting foundation.",
+             "video_id": "o4GKiEoYClI"},
         ],
         "swap_rules": {},
         "note": "No loaded exercises until core stability is established. Progress loading gradually."
@@ -715,7 +729,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],
         "add": [
             {"name": "Step-Up (low step)", "sets": 2, "reps": "8 each leg", "type": "functional",
-             "instruction": "Use a low step (10-15cm). Step up slowly with control, step down slowly. Retrains stair mechanics with reduced load."},
+             "instruction": "Use a low step (10-15cm). Step up slowly with control, step down slowly. Retrains stair mechanics with reduced load.",
+             "video_id": "AiP9Cv0gkl8"},
         ],
         "swap_rules": {},
         "note": "Use handrails on stairs. Lead with the stronger leg going up, weaker leg going down."
@@ -724,7 +739,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],
         "add": [
             {"name": "Wall Slide", "sets": 2, "reps": "10", "type": "mobility",
-             "instruction": "Stand with back against wall. Slide arms up wall in W-to-Y pattern. Builds overhead mobility safely."},
+             "instruction": "Stand with back against wall. Slide arms up wall in W-to-Y pattern. Builds overhead mobility safely.",
+             "video_id": "HXZQzLVyn5Q"},
         ],
         "swap_rules": {},
         "note": "Avoid overhead reaching during recovery. Use step stools for high tasks."
@@ -733,7 +749,8 @@ AGGRAVATION_MODIFIERS = {
         "avoid_types": [],
         "add": [
             {"name": "Seated Lumbar Roll Stretch", "sets": 2, "reps": "30s each side", "type": "stretching",
-             "instruction": "Sit tall, cross one leg. Rotate trunk toward crossed knee. Hold 30 seconds. Do before and after driving."},
+             "instruction": "Sit tall, cross one leg. Rotate trunk toward crossed knee. Hold 30 seconds. Do before and after driving.",
+             "video_id": "dNKI3bBLV3Q"},
         ],
         "swap_rules": {},
         "note": "Use lumbar support cushion. Stop every 30-45 minutes for a brief walk and stretch."
@@ -756,7 +773,8 @@ BMI_MODIFIERS = {
         "range": "30.0-34.9",
         "exercises": [
             {"name": "Seated Marching", "sets": 2, "reps": "20", "type": "mobility",
-             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Low-impact cardiovascular and hip mobility exercise."},
+             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Low-impact cardiovascular and hip mobility exercise.",
+             "video_id": "3uYm4pjByP0"},
         ],
         "advice": "Use seated or lying exercises first. Progress to standing when comfortable. Use a sturdy chair for support during standing exercises.",
         "swap_rules": {},
@@ -767,9 +785,11 @@ BMI_MODIFIERS = {
         "range": "35.0-39.9",
         "exercises": [
             {"name": "Seated Marching", "sets": 2, "reps": "20", "type": "mobility",
-             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Low-impact cardiovascular and hip mobility exercise."},
+             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Low-impact cardiovascular and hip mobility exercise.",
+             "video_id": "3uYm4pjByP0"},
             {"name": "Wall Push-Up", "sets": 2, "reps": "10", "type": "strengthening",
-             "instruction": "Stand arm's length from wall. Place hands on wall, slowly bend elbows to bring chest toward wall. Push back. Upper body strengthening without floor work."},
+             "instruction": "Stand arm's length from wall. Place hands on wall, slowly bend elbows to bring chest toward wall. Push back. Upper body strengthening without floor work.",
+             "video_id": "c0NVN9xRaio"},
         ],
         "advice": "Prioritize non-weight-bearing and seated exercises. Use chair for balance support. Avoid jumping or high-impact movements. Monitor breathing and heart rate.",
         "swap_rules": {},
@@ -779,11 +799,14 @@ BMI_MODIFIERS = {
         "range": "40.0+",
         "exercises": [
             {"name": "Seated Marching", "sets": 2, "reps": "15", "type": "mobility",
-             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Start with shorter duration and build up."},
+             "instruction": "Sit on sturdy chair. Lift knees alternately in marching motion. Start with shorter duration and build up.",
+             "video_id": "3uYm4pjByP0"},
             {"name": "Wall Push-Up", "sets": 2, "reps": "8", "type": "strengthening",
-             "instruction": "Stand arm's length from wall. Place hands on wall, slowly bend elbows. Push back. Modify range if needed."},
+             "instruction": "Stand arm's length from wall. Place hands on wall, slowly bend elbows. Push back. Modify range if needed.",
+             "video_id": "c0NVN9xRaio"},
             {"name": "Seated Ankle Pumps", "sets": 2, "reps": "20", "type": "mobility",
-             "instruction": "Sit with legs extended. Pump ankles up and down. Promotes circulation and ankle mobility without standing."},
+             "instruction": "Sit with legs extended. Pump ankles up and down. Promotes circulation and ankle mobility without standing.",
+             "video_id": "y-bnymGEb3Q"},
         ],
         "advice": "Start with seated and lying exercises only. Avoid all floor-to-standing transitions initially. Use armrests to assist standing. Monitor for shortness of breath. Take rest breaks between exercises.",
         "swap_rules": {},
