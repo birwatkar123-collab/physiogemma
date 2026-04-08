@@ -10,4 +10,3 @@ venv/
 .venv/
 cover_image.png
 create_cover.py
-kaggle_writeup.md
