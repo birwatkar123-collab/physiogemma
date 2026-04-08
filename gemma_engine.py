@@ -321,7 +321,7 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             tool_config=types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(mode="AUTO")
             ),
-            max_output_tokens=400,
+            max_output_tokens=600,
             temperature=0.3,
         )
 

@@ -644,8 +644,8 @@ def build_app():
                 AI Physiotherapy <strong>Agent</strong> powered by <strong>Gemma 4</strong>
             </p>
             <p style="font-size: 0.85em; color: #64748b; margin: 4px 0 0 0;">
-                ReAct Agent &bull; Tool-Calling &bull; Progress Tracking &bull;
-                Recovery Graph &bull; AI Insights &bull; 8 Conditions
+                ReAct Agent &bull; Tool-Calling &bull; RAG-Enhanced &bull; Progress Tracking &bull;
+                Recovery Graph &bull; AI Insights &bull; 183 Exercises &bull; 8 Conditions
             </p>
         </div>
         """)
@@ -667,8 +667,8 @@ def build_app():
                     gr.Markdown("""
 **PhysioGemma** is a **ReAct Agent** that autonomously conducts clinical assessments:
 
-**4 Agent Tools:** Safety Check, Classify Occupation, Determine Exercise Level, Generate Prescription
-**+ Progress Analysis** tool for recovery tracking insights
+**5 Agent Tools:** Safety Check, Classify Occupation, Determine Exercise Level, Generate Prescription, Progress Analysis
+**+ RAG-Enhanced** clinical reasoning with condition-specific evidence injection
 
 Every tool call is logged in the **Reasoning Chain** for full transparency.
 
@@ -802,8 +802,8 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
                     border-top: 1px solid #e2e8f0; margin-top: 30px;">
             <p><strong>PhysioGemma Agent</strong> &mdash; Gemma 4 Good Hackathon
                (Health &amp; Sciences Track)</p>
-            <p>ReAct Agent &bull; Tool-Calling &bull; Progress Tracking &bull;
-               Not medical advice</p>
+            <p>ReAct Agent &bull; Tool-Calling &bull; RAG-Enhanced &bull;
+               183 Exercises &bull; Not medical advice</p>
             <p>Created by Gaurav Birwatkar &bull; CC-BY 4.0 License</p>
         </div>
         """)
