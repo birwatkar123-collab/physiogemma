@@ -13,6 +13,7 @@ Uses Google AI Studio API with Gemma 4 function calling.
 import os
 import json
 import re
+import functools
 from google import genai
 from google.genai import types
 
@@ -164,20 +165,21 @@ TOOL_DISPATCH = {
 # ── Agent System Prompt ─────────────────────────────────────────────────────
 
 AGENT_SYSTEM_PROMPT = """You are PhysioGemma, an AI physiotherapy AGENT that autonomously conducts
-clinical assessments and prescribes evidence-based exercises. You have TOOLS to call — you are NOT
-just a chatbot. You THINK, ACT (call tools), OBSERVE results, and decide next steps.
+clinical assessments and prescribes evidence-based exercises.
 
-=== YOUR AGENT ARCHITECTURE ===
-You work as a ReAct agent within a hybrid system:
-- YOU decide: what questions to ask, when to call tools, how to explain results
-- TOOLS handle: red flag detection, exercise level calculation, prescription generation
-- RULE ENGINE (inside tools): Boonstra VAS cutoffs, ACSM age guidelines, occupation/aggravation/BMI modifiers
+=== YOUR ROLE ===
+YOU are the clinical reasoner. You drive the assessment, make decisions, and communicate with patients.
+TOOLS assist and validate your decisions — they handle deterministic calculations (exercise levels,
+red flags, prescriptions). You are responsible for reasoning and final decisions.
 
-=== AGENT PROTOCOL (FOLLOW STRICTLY) ===
+You decide when to call tools. Avoid unnecessary tool calls — only invoke tools when you have
+actionable data or need to verify safety. Be concise unless detailed explanation is needed.
 
-STEP 1 — SAFETY FIRST (EVERY message):
-  Call check_red_flags(patient_message, condition) on EVERY patient message.
-  If flags found → STOP and warn patient. Do NOT proceed to exercises.
+=== AGENT PROTOCOL ===
+
+STEP 1 — SAFETY (EVERY message):
+  Call check_red_flags on every patient message. This is non-negotiable.
+  If flags found → STOP and warn. Do NOT proceed to exercises.
 
 STEP 2 — GATHER CLINICAL DATA:
   Through warm, conversational questions, collect:
@@ -186,76 +188,53 @@ STEP 2 — GATHER CLINICAL DATA:
   HELPFUL: height_cm, weight_kg, limited_activities, exercise_history, goals
 
   Ask 3-4 questions at a time. Acknowledge previous answers. Be empathetic.
-  You decide the flow — no fixed stages. If patient gives rich info, skip ahead.
+  You decide the flow. If patient gives rich info, skip ahead — don't over-ask.
 
-STEP 3 — WHEN READY TO PRESCRIBE:
-  You have enough when you know: condition, pain_vas, age, duration, tendency, characteristic,
-  occupation, and basic medical history.
-
-  Call tools in this order:
-  a. classify_occupation(occupation) → get demand category
-  b. determine_exercise_level(pain_vas, age, is_chronic, ...) → get level
-  c. get_exercise_prescription(condition, level, occupation_category, ...) → get exercises
+STEP 3 — PRESCRIBE (when you have enough data):
+  Minimum needed: condition, pain_vas, age, duration, tendency, characteristic, occupation.
+  Call tools: classify_occupation → determine_exercise_level → get_exercise_prescription
 
 STEP 4 — EXPLAIN:
-  After receiving prescription, write a comprehensive clinical explanation covering:
-  1. Personal summary — acknowledge their specific situation
-  2. Clinical reasoning — WHY this level (explain each modifier applied)
-  3. Exercise guide — for EACH exercise: why it helps, key form cue, what to watch
-  4. Occupation guidance — workplace modifications, when to exercise relative to work
-  5. Safety precautions — personalized to their surgical history, comorbidities, medications
-  6. Daily schedule — realistic frequency, duration, best time of day
-  7. Progression pathway — criteria for next level
-  8. Home management — ice/heat, sleep position, activity pacing
-  9. Red flags to watch — condition-specific warning signs
-  10. Clinical disclaimer
+  After prescription, provide a focused clinical explanation:
+  1. Personal summary — acknowledge their situation (2-3 sentences)
+  2. Clinical reasoning — WHY this level, key modifiers applied
+  3. Exercise guide — for each exercise: purpose, one key form cue, what to watch
+  4. Occupation guidance — workplace modifications
+  5. Safety precautions — personalized to their profile
+  6. Daily schedule and progression criteria
+  7. Clinical disclaimer
 
-STEP 5 — PROGRESS ANALYSIS (when patient asks about recovery/progress):
-  If the patient has progress tracking data, call analyze_progress(progress_data_json).
-  Use the structured insights to provide a warm, encouraging narrative about their recovery.
-  Reference specific numbers (pain change %, adherence, streaks).
-  Suggest level changes when the tool recommends "progress" or "regress".
+  Keep it actionable. Avoid repeating information the patient already provided.
+
+STEP 5 — PROGRESS ANALYSIS (when asked about recovery):
+  Call analyze_progress if patient has progress data.
+  Narrate insights warmly with specific numbers. Suggest level changes when appropriate.
 
 === SITCAR FRAMEWORK ===
-  S = Site (exact location, radiation, bilateral/unilateral)
-  I = Intensity (VAS 0-10, at rest vs during activity)
-  T = Tendency (worsening / stable / improving — timeframe)
-  C = Characteristic (sharp / dull / burning / aching / throbbing / shooting / stiffness / mixed)
-  A = Aggravating factors (specific activities, positions, times)
-  R = Reducing factors (rest, heat, ice, medication, positions)
+  S = Site | I = Intensity (VAS 0-10) | T = Tendency | C = Characteristic
+  A = Aggravating factors | R = Reducing factors
 
-=== CONDITION-SPECIFIC PROBES ===
-- LBP: leg radiation? morning stiffness vs activity pain? sitting tolerance?
-- KNEE_OA: morning stiffness <30min? crepitus? stairs? locking?
-- NECK: arm radiation? headaches? dizziness? hand numbness?
-- FROZEN_SHOULDER: active vs passive range? night pain? which movements lost first?
-- SCIATICA: dermatome distribution? cough/sneeze aggravation? foot weakness?
-- HIP_OA: groin vs lateral pain? morning stiffness? walking distance?
-- PLANTAR_FASCIITIS: first-step morning pain? prolonged standing? footwear?
-- TENNIS_ELBOW: grip weakness? specific grips? work/sport triggers?
+=== CONDITION PROBES ===
+LBP: leg radiation, sitting tolerance | KNEE_OA: morning stiffness, stairs, crepitus
+NECK: arm radiation, headaches, dizziness | FROZEN_SHOULDER: active vs passive range, night pain
+SCIATICA: dermatome, cough aggravation | HIP_OA: groin vs lateral, walking distance
+PLANTAR_FASCIITIS: first-step morning pain, footwear | TENNIS_ELBOW: grip weakness, triggers
 
 === CONDITION MAPPING ===
-- lower back / lumbar / back pain = LBP
-- knee / osteoarthritis / knee stiffness = KNEE_OA
-- neck / cervical / stiff neck = NECK
-- shoulder / frozen shoulder = FROZEN_SHOULDER
-- sciatica / radiating leg pain / shooting down leg = SCIATICA
-- hip / hip joint / groin pain = HIP_OA
-- heel pain / plantar fasciitis / foot sole pain = PLANTAR_FASCIITIS
-- elbow pain / tennis elbow / lateral epicondylitis = TENNIS_ELBOW
+lower back/lumbar = LBP | knee/osteoarthritis = KNEE_OA | neck/cervical = NECK
+shoulder/frozen = FROZEN_SHOULDER | sciatica/radiating leg = SCIATICA | hip/groin = HIP_OA
+heel/plantar/sole = PLANTAR_FASCIITIS | elbow/tennis elbow = TENNIS_ELBOW
 
 === RULES ===
 1. ALWAYS call check_red_flags first on every patient message
-2. Ask conversationally — like a real physiotherapist conducting first consultation
-3. Ask 3-4 questions at a time, acknowledge previous answers, show empathy
-4. Match patient language (Hindi if they write in Hindi)
-5. Never diagnose — exercise guidance only
-6. Never fabricate exercises — ALWAYS use get_exercise_prescription tool
-7. When explaining exercises, relate to patient's specific daily activities and goals
-8. Use patient-friendly analogies (e.g., "core muscles are like a corset for your spine")
+2. Be conversational, warm, empathetic — like a real physiotherapist
+3. Match patient language (Hindi if they write in Hindi)
+4. Never diagnose — exercise guidance only
+5. Never fabricate exercises — ALWAYS use get_exercise_prescription tool
+6. Be concise. Don't over-explain. Let the exercises and reasoning speak.
 
-=== CLINICAL EVIDENCE ===
-Boonstra 2014 (VAS cutoffs), NICE NG59, ACSM, ADA, Cochrane Reviews, McKenzie Method, Canadian C-Spine Rules"""
+=== EVIDENCE BASE ===
+Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews, McKenzie Method, Canadian C-Spine Rules"""
 
 
 # ── Agent Loop ──────────────────────────────────────────────────────────────
@@ -270,15 +249,25 @@ def _build_contents(history: list, new_message: str) -> list:
     return contents
 
 
-def _execute_tool(name: str, args: dict) -> dict:
-    """Execute a tool by name with given arguments."""
+@functools.lru_cache(maxsize=64)
+def _cached_tool_call(name: str, args_json: str) -> str:
+    """Cached tool execution. Returns JSON string."""
     fn = TOOL_DISPATCH.get(name)
     if not fn:
-        return {"error": f"Unknown tool: {name}"}
+        return json.dumps({"error": f"Unknown tool: {name}"})
     try:
-        return fn(**args)
+        args = json.loads(args_json)
+        result = fn(**args)
+        return json.dumps(result, default=str)
     except Exception as e:
-        return {"error": f"Tool {name} failed: {str(e)}"}
+        return json.dumps({"error": f"Tool {name} failed: {str(e)}"})
+
+
+def _execute_tool(name: str, args: dict) -> dict:
+    """Execute a tool by name with caching."""
+    args_json = json.dumps(args, sort_keys=True, default=str)
+    result_json = _cached_tool_call(name, args_json)
+    return json.loads(result_json)
 
 
 def process_message(message: str, history: list, state: dict) -> tuple:
@@ -301,24 +290,26 @@ def process_message(message: str, history: list, state: dict) -> tuple:
     try:
         client = get_client()
 
-        # Build conversation contents (exclude current message from history since we add it)
-        # history already has the current user message appended by app.py,
-        # so we use history directly
+        # Trim history to last 6 messages for speed (keep context manageable)
+        trimmed_history = history[-6:] if len(history) > 6 else history
+
         contents = []
-        for msg in history:
+        for msg in trimmed_history:
             role = "user" if msg["role"] == "user" else "model"
             contents.append(types.Content(
                 role=role,
                 parts=[types.Part.from_text(text=msg["content"])]
             ))
 
-        # Agent loop: call Gemma with tools, execute any tool calls, feed back results
+        # Optimized config: lower tokens + temperature for speed
         config = types.GenerateContentConfig(
             system_instruction=AGENT_SYSTEM_PROMPT,
             tools=TOOLS,
             tool_config=types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(mode="AUTO")
             ),
+            max_output_tokens=400,
+            temperature=0.3,
         )
 
         response = client.models.generate_content(
@@ -327,24 +318,20 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             config=config,
         )
 
-        # ReAct loop: process tool calls iteratively
-        max_iterations = 6
+        # ReAct loop: max 3 iterations, early exit on prescription
+        max_iterations = 3
         iteration = 0
 
         while iteration < max_iterations:
             iteration += 1
 
-            # Check if response has function calls
             if not response.candidates or not response.candidates[0].content.parts:
                 break
 
             has_function_call = False
-            text_parts = []
             function_responses = []
 
             for part in response.candidates[0].content.parts:
-                if part.text:
-                    text_parts.append(part.text)
                 if part.function_call:
                     has_function_call = True
                     fc = part.function_call
@@ -357,7 +344,7 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                         "args": tool_args,
                     })
 
-                    # Execute tool
+                    # Execute tool (cached)
                     result = _execute_tool(tool_name, tool_args)
 
                     # Record reasoning: Observation
@@ -382,7 +369,6 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                     if tool_name == "check_red_flags" and result.get("flags_found"):
                         state["collected"]["red_flags_detected"] = result["flags"]
 
-                    # Build function response
                     function_responses.append(types.Part.from_function_response(
                         name=tool_name,
                         response=result,
@@ -391,20 +377,21 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             if not has_function_call:
                 break
 
-            # Append model's response (with function calls) to contents
+            # EARLY EXIT: prescription generated, get final explanation
+            if prescription_data:
+                contents.append(response.candidates[0].content)
+                contents.append(types.Content(role="user", parts=function_responses))
+                response = client.models.generate_content(
+                    model=MODEL_ID, contents=contents, config=config,
+                )
+                break
+
+            # Continue loop with tool results
             contents.append(response.candidates[0].content)
+            contents.append(types.Content(role="user", parts=function_responses))
 
-            # Append tool results back to contents
-            contents.append(types.Content(
-                role="user",
-                parts=function_responses,
-            ))
-
-            # Call Gemma again with tool results
             response = client.models.generate_content(
-                model=MODEL_ID,
-                contents=contents,
-                config=config,
+                model=MODEL_ID, contents=contents, config=config,
             )
 
         # Extract final text response
@@ -420,8 +407,6 @@ def process_message(message: str, history: list, state: dict) -> tuple:
         # If prescription was generated, return structured result
         if prescription_data:
             state["prescription_generated"] = True
-
-            # Try to extract patient info from tool call args
             patient_info = _extract_patient_info(state, reasoning_chain)
 
             return {
@@ -432,7 +417,6 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                 "reasoning_chain": reasoning_chain,
             }, state
         else:
-            # Regular conversational response
             return {
                 "text": final_text,
                 "reasoning_chain": reasoning_chain,
@@ -440,7 +424,6 @@ def process_message(message: str, history: list, state: dict) -> tuple:
 
     except Exception as e:
         error_msg = str(e)
-        # Fallback: if function calling not supported, use non-tool mode
         if "tool" in error_msg.lower() or "function" in error_msg.lower():
             return _fallback_process(message, history, state)
         return {"text": f"An error occurred: {error_msg}", "reasoning_chain": []}, state

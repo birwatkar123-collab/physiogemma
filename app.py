@@ -410,7 +410,17 @@ def _progress_to_dataframe(progress_data: dict) -> list:
 
 # ── Chat handler ────────────────────────────────────────────────────────────
 
+def chat_loading(message: str, history: list, state: dict | None, progress_data: dict | None):
+    """Phase 1: Show user message + loading indicator immediately."""
+    if not message or not message.strip():
+        return history, state, progress_data, message
+    history = history + [{"role": "user", "content": message}]
+    history = history + [{"role": "assistant", "content": "Analyzing your condition..."}]
+    return history, state, progress_data, message
+
+
 def chat(message: str, history: list, state: dict | None, progress_data: dict | None):
+    """Phase 2: Process with agent and replace loading message."""
     if not message or not message.strip():
         return history, state, "", "", "", "", "", progress_data, serialize_progress(progress_data or {})
 
@@ -419,7 +429,10 @@ def chat(message: str, history: list, state: dict | None, progress_data: dict | 
     if progress_data is None:
         progress_data = create_empty_progress()
 
-    history = history + [{"role": "user", "content": message}]
+    # Remove the "Analyzing..." placeholder before processing
+    if history and history[-1].get("content") == "Analyzing your condition...":
+        history = history[:-1]
+
     result, state = process_message(message, history, state)
 
     reasoning_chain = result.get("reasoning_chain", []) if isinstance(result, dict) else []
@@ -806,22 +819,34 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
             js=JS_LOAD_PROGRESS,
         )
 
-        # Consultation chat
+        # Hidden textbox to hold message during two-phase chat
+        msg_holder = gr.Textbox(visible=False)
+
+        # Consultation chat — two-phase: loading → process
+        loading_outputs = [chatbot, consultation_state, progress_state, msg_holder]
         chat_outputs = [chatbot, consultation_state, progress_display, profile_display,
                         exercises_display, reasoning_display, agent_chain_display,
                         progress_state, progress_store]
 
         send_btn.click(
-            fn=chat,
+            fn=chat_loading,
             inputs=[msg, chatbot, consultation_state, progress_state],
+            outputs=loading_outputs,
+        ).then(lambda: "", outputs=msg).then(
+            fn=chat,
+            inputs=[msg_holder, chatbot, consultation_state, progress_state],
             outputs=chat_outputs,
-        ).then(lambda: "", outputs=msg).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
+        ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
         msg.submit(
-            fn=chat,
+            fn=chat_loading,
             inputs=[msg, chatbot, consultation_state, progress_state],
+            outputs=loading_outputs,
+        ).then(lambda: "", outputs=msg).then(
+            fn=chat,
+            inputs=[msg_holder, chatbot, consultation_state, progress_state],
             outputs=chat_outputs,
-        ).then(lambda: "", outputs=msg).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
+        ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
         reset_btn.click(
             fn=reset,
