@@ -31,248 +31,187 @@ THEME = gr.themes.Soft(
 
 CSS = """
 /* ══════════════════════════════════════════════════════════════════════════
-   FORCE LIGHT MODE — overrides Gradio dark theme on dark-mode devices
+   PHYSIOGEMMA — FULL LIGHT THEME
+   Readable on all devices including dark-mode phones.
    ══════════════════════════════════════════════════════════════════════════ */
-:root { color-scheme: light !important; }
 
-/* Light page background */
-body,
-.dark body,
-.gradio-container,
-.dark .gradio-container {
-    background: #f0f4ff !important;
-    color: #1e293b !important;
-    color-scheme: light !important;
+/* ── Force light color-scheme everywhere ────────────────────────────────── */
+:root, *, *::before, *::after { color-scheme: light !important; }
+
+/* ── Page background ────────────────────────────────────────────────────── */
+html, body, .dark, .dark body { background: #f0f4ff !important; color: #1e293b !important; }
+.gradio-container, .dark .gradio-container { max-width: 1100px !important; background: #f0f4ff !important; color: #1e293b !important; }
+
+/* ── All inner panels → white ────────────────────────────────────────────── */
+.block, .wrap, .panel, section, .tabitem, .tab-content, fieldset, .form, .gap, .contain,
+.dark .block, .dark .wrap, .dark .panel, .dark section,
+.dark .tabitem, .dark .tab-content, .dark fieldset, .dark .form, .dark .gap, .dark .contain {
+    background: #ffffff !important; border-color: #e2e8f0 !important; color: #1e293b !important;
 }
 
-/* Force all inner panels / blocks to white */
-.dark .block,
-.dark .wrap,
-.dark .panel,
-.dark section,
-.dark .tabitem,
-.dark .tab-content,
-.dark fieldset,
-.dark .form,
-.block, .wrap, .panel, section, .tabitem, .tab-content, fieldset, .form {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    border-color: #e2e8f0 !important;
-    color: #1e293b !important;
-}
-
-.gradio-container { max-width: 1100px !important; }
-* { transition: box-shadow 0.2s ease, transform 0.2s ease; }
-
-/* ── All text dark ──────────────────────────────────────────────────────── */
+/* ── All text dark ───────────────────────────────────────────────────────── */
 .gradio-container *, .dark .gradio-container *,
 .prose *, .markdown-text *,
-p, li, td, th, label, h1, h2, h3, h4, h5, h6 {
-    color: #1e293b !important;
+p, li, td, th, label, span, h1, h2, h3, h4, h5, h6 { color: #1e293b !important; }
+
+/* ── Inputs & textareas ─────────────────────────────────────────────────── */
+input, textarea, select, .dark input, .dark textarea, .dark select,
+[data-testid="textbox"], [data-testid="textbox"] textarea,
+.dark [data-testid="textbox"], .dark [data-testid="textbox"] textarea {
+    background: #ffffff !important; color: #1e293b !important; border-color: #c5cae9 !important;
+}
+input::placeholder, textarea::placeholder { color: #94a3b8 !important; }
+
+/* ── Chat container ──────────────────────────────────────────────────────── */
+.chatbot, .chatbot > div, .dark .chatbot, .dark .chatbot > div {
+    background: #f8faff !important; border: 1px solid #e2e8f0 !important;
 }
 
-/* ── Inputs & textareas — force white bg + dark text ───────────────────── */
-input, textarea,
-.dark input, .dark textarea,
-[data-testid="textbox"] textarea,
-.dark [data-testid="textbox"] textarea,
-.dark [data-testid="textbox"],
-[data-testid="textbox"] {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    color: #1e293b !important;
-    border-color: #c5cae9 !important;
-}
-
-/* ── Chat container — white ─────────────────────────────────────────────── */
-.chatbot, .chatbot > div,
-.dark .chatbot, .dark .chatbot > div {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-}
-
-/* ── Chat bubbles ───────────────────────────────────────────────────────── */
+/* ── Chat bubbles ────────────────────────────────────────────────────────── */
 .message-wrap .message {
-    border-radius: 16px !important;
-    padding: 14px 18px !important;
-    font-size: 15px !important;
-    line-height: 1.65 !important;
-    max-width: 88% !important;
+    border-radius: 16px !important; padding: 14px 18px !important;
+    font-size: 15px !important; line-height: 1.65 !important; max-width: 88% !important;
 }
-.message-wrap .bot,
-.dark .message-wrap .bot {
-    background: #ffffff !important;
-    border: 1px solid #c5cae9 !important;
-    border-radius: 16px 16px 16px 4px !important;
-    color: #1e293b !important;
+.message-wrap .bot, .dark .message-wrap .bot {
+    background: #ffffff !important; border: 1px solid #dde1f5 !important;
+    border-radius: 16px 16px 16px 4px !important; box-shadow: 0 2px 8px rgba(26,35,126,0.06) !important;
 }
 .message-wrap .bot *, .dark .message-wrap .bot * { color: #1e293b !important; }
 .message-wrap .bot code { color: #1a237e !important; background: #e8eaf6 !important; }
-.message-wrap .user,
-.dark .message-wrap .user {
+.message-wrap .user, .dark .message-wrap .user {
     background: linear-gradient(135deg, #4285F4 0%, #1a73e8 100%) !important;
-    color: #ffffff !important;
-    border-radius: 16px 16px 4px 16px !important;
-    box-shadow: 0 2px 10px rgba(66,133,244,0.3) !important;
+    border-radius: 16px 16px 4px 16px !important; box-shadow: 0 2px 10px rgba(66,133,244,0.25) !important;
 }
 .message-wrap .user *, .dark .message-wrap .user * { color: #ffffff !important; }
 
-/* ── Example buttons — white bg dark text ──────────────────────────────── */
-.examples table td button,
-.dark .examples table td button,
-.example-set button,
-.dark .example-set button {
-    background: #ffffff !important;
-    color: #1e293b !important;
-    border: 1px solid #c5cae9 !important;
-    border-radius: 10px !important;
+/* ── Example buttons ─────────────────────────────────────────────────────── */
+.examples table td button, .dark .examples table td button,
+.example-set button, .dark .example-set button {
+    background: #ffffff !important; color: #1e293b !important;
+    border: 1px solid #c5cae9 !important; border-radius: 10px !important;
 }
+.examples table td button:hover { background: #eef2ff !important; border-color: #4285F4 !important; }
 
-/* ── Buttons ────────────────────────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
 button.primary, .dark button.primary {
     background: linear-gradient(135deg, #4285F4, #1a73e8) !important;
-    color: #ffffff !important;
-    border-radius: 12px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.02em !important;
+    color: #ffffff !important; border-radius: 12px !important;
+    font-weight: 700 !important; border: none !important;
     box-shadow: 0 2px 8px rgba(66,133,244,0.25) !important;
 }
 button.primary:hover { box-shadow: 0 4px 16px rgba(66,133,244,0.4) !important; transform: translateY(-1px); }
 button.secondary, .dark button.secondary {
-    background: #ffffff !important;
-    color: #374151 !important;
-    border: 1px solid #c5cae9 !important;
-    border-radius: 12px !important;
+    background: #ffffff !important; color: #374151 !important;
+    border: 1px solid #c5cae9 !important; border-radius: 12px !important;
 }
 
-/* ── Tabs ───────────────────────────────────────────────────────────────── */
-.tabs > .tab-nav, .dark .tabs > .tab-nav {
-    background: #e8eaf6 !important;
-    border-bottom: 1px solid #c5cae9 !important;
-}
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.tabs > .tab-nav, .dark .tabs > .tab-nav { background: #e8eaf6 !important; border-bottom: 2px solid #c5cae9 !important; }
 .tabs > .tab-nav > button, .dark .tabs > .tab-nav > button {
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    padding: 12px 22px !important;
-    border-radius: 12px 12px 0 0 !important;
-    color: #475569 !important;
-    background: transparent !important;
+    font-size: 15px !important; font-weight: 600 !important; padding: 12px 22px !important;
+    border-radius: 12px 12px 0 0 !important; color: #64748b !important; background: transparent !important;
 }
 .tabs > .tab-nav > button.selected, .dark .tabs > .tab-nav > button.selected {
-    background: #ffffff !important;
-    border-bottom: 3px solid #4285F4 !important;
-    color: #1a237e !important;
+    background: #ffffff !important; border-bottom: 3px solid #4285F4 !important; color: #1a237e !important;
 }
 
-/* ── Exercise cards ─────────────────────────────────────────────────────── */
-.exercise-card {
-    background: linear-gradient(145deg, #f5f7ff 0%, #e8eaf6 50%, #f0f4ff 100%) !important;
-    border: 1px solid #c5cae9 !important;
-    border-radius: 16px !important;
-    padding: 20px !important;
-    margin: 12px 0 !important;
-}
-.exercise-card:hover { box-shadow: 0 6px 24px rgba(66,133,244,0.12) !important; transform: translateY(-2px); border-color: #8ab4f8 !important; }
-.exercise-card h4 { color: #1a237e !important; margin: 0 0 10px 0 !important; font-size: 17px !important; font-weight: 700 !important; }
-.exercise-card p  { color: #475569 !important; margin: 5px 0 !important; font-size: 14px !important; line-height: 1.6 !important; }
-.exercise-card .ex-meta { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px 0; }
-.exercise-card .ex-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-.ex-badge-sets { background: #e3f2fd !important; color: #1565c0 !important; }
-.ex-badge-reps { background: #e8f5e9 !important; color: #2e7d32 !important; }
-.ex-badge-type { background: #ede7f6 !important; color: #6a1b9a !important; }
+/* ── Accordion ───────────────────────────────────────────────────────────── */
+.accordion, .dark .accordion { border-radius: 12px !important; background: #ffffff !important; border: 1px solid #e2e8f0 !important; }
 
-/* ── Reasoning chain ────────────────────────────────────────────────────── */
-.reasoning-step { border-radius: 10px !important; padding: 12px 16px !important; margin: 8px 0 !important; font-size: 13px !important; line-height: 1.6 !important; }
-.reasoning-action      { background: linear-gradient(135deg, #e8eaf6, #c5cae9) !important; border-left: 4px solid #4285F4 !important; }
-.reasoning-observation { background: linear-gradient(135deg, #e8f5e9, #c8e6c9) !important; border-left: 4px solid #34a853 !important; font-size: 12px !important; }
-.reasoning-warning     { background: linear-gradient(135deg, #fce4ec, #ffcdd2) !important; border-left: 4px solid #ea4335 !important; }
-.tool-badge {
-    display: inline-block !important;
-    background: linear-gradient(135deg, #e3f2fd, #bbdefb) !important;
-    border: 1px solid #8ab4f8 !important;
-    color: #1a237e !important;
-    padding: 3px 12px !important;
-    border-radius: 20px !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-}
-
-/* ── Progress pills ─────────────────────────────────────────────────────── */
+/* ── Progress pills ──────────────────────────────────────────────────────── */
 .progress-bar { display: flex; gap: 8px; justify-content: center; margin: 12px 0 24px; flex-wrap: wrap; }
 .progress-pill { padding: 6px 16px !important; border-radius: 24px !important; font-size: 12px !important; font-weight: 700 !important; }
 .progress-done    { background: linear-gradient(135deg, #4285F4, #1a73e8) !important; color: #ffffff !important; }
 .progress-pending { background: #e8eaf6 !important; color: #3949ab !important; border: 1px solid #c5cae9 !important; }
 
-/* ── Stat cards ─────────────────────────────────────────────────────────── */
-.stat-card { background: linear-gradient(145deg, #ffffff, #f5f7ff) !important; border: 1px solid #c5cae9 !important; border-radius: 16px !important; padding: 20px 16px !important; text-align: center !important; }
+/* ── Exercise cards ──────────────────────────────────────────────────────── */
+.exercise-card {
+    background: #ffffff !important; border: 1px solid #dde1f5 !important;
+    border-radius: 16px !important; padding: 20px !important; margin: 12px 0 !important;
+    box-shadow: 0 2px 12px rgba(26,35,126,0.05) !important;
+}
+.exercise-card:hover { box-shadow: 0 6px 24px rgba(66,133,244,0.12) !important; transform: translateY(-2px); border-color: #8ab4f8 !important; }
+.exercise-card h4 { color: #1a237e !important; font-size: 17px !important; font-weight: 700 !important; }
+.exercise-card p  { color: #475569 !important; font-size: 14px !important; line-height: 1.6 !important; }
+.exercise-card .ex-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.ex-badge-sets { background: #dbeafe !important; color: #1e40af !important; }
+.ex-badge-reps { background: #dcfce7 !important; color: #166534 !important; }
+.ex-badge-type { background: #ede9fe !important; color: #5b21b6 !important; }
+
+/* ── Reasoning chain ─────────────────────────────────────────────────────── */
+.reasoning-step { border-radius: 10px !important; padding: 12px 16px !important; margin: 8px 0 !important; font-size: 13px !important; line-height: 1.6 !important; }
+.reasoning-action      { background: #eef2ff !important; border-left: 4px solid #4285F4 !important; }
+.reasoning-observation { background: #f0fdf4 !important; border-left: 4px solid #34a853 !important; font-size: 12px !important; }
+.reasoning-warning     { background: #fff1f2 !important; border-left: 4px solid #ea4335 !important; }
+.tool-badge {
+    display: inline-block !important; background: #dbeafe !important; border: 1px solid #93c5fd !important;
+    color: #1e40af !important; padding: 3px 12px !important; border-radius: 20px !important;
+    font-size: 11px !important; font-weight: 700 !important; text-transform: uppercase !important;
+}
+
+/* ── Stat cards ──────────────────────────────────────────────────────────── */
+.stat-card {
+    background: #ffffff !important; border: 1px solid #dde1f5 !important;
+    border-radius: 16px !important; padding: 20px 16px !important; text-align: center !important;
+    box-shadow: 0 2px 12px rgba(26,35,126,0.04) !important;
+}
 .stat-card:hover { box-shadow: 0 6px 20px rgba(66,133,244,0.1) !important; transform: translateY(-2px); border-color: #8ab4f8 !important; }
-.stat-card .stat-icon { font-size: 28px !important; }
 .stat-card h3 { color: #1a237e !important; font-size: 30px !important; font-weight: 800 !important; }
 .stat-card p  { color: #5c6bc0 !important; font-size: 13px !important; font-weight: 500 !important; }
 
-/* ── Milestones ─────────────────────────────────────────────────────────── */
-.milestone-badge { background: linear-gradient(135deg,#fff8e1,#ffecb3) !important; border: 1px solid #fbbc04 !important; border-radius: 24px !important; padding: 8px 16px !important; color: #e65100 !important; font-weight: 700 !important; }
+/* ── Milestones ──────────────────────────────────────────────────────────── */
+.milestone-badge {
+    background: #fef9c3 !important; border: 1px solid #fbbf24 !important;
+    border-radius: 24px !important; padding: 8px 16px !important; color: #92400e !important; font-weight: 700 !important;
+}
 
-/* ── Insight cards ──────────────────────────────────────────────────────── */
+/* ── Insight cards ───────────────────────────────────────────────────────── */
 .insight-card { border-radius: 12px !important; padding: 14px 18px !important; margin: 10px 0 !important; font-size: 14px !important; line-height: 1.6 !important; }
-.insight-improvement      { background: linear-gradient(135deg,#e8f5e9,#c8e6c9) !important; border-left: 4px solid #34a853 !important; }
-.insight-concern          { background: linear-gradient(135deg,#fce4ec,#ffcdd2) !important; border-left: 4px solid #ea4335 !important; }
-.insight-suggestion       { background: linear-gradient(135deg,#e3f2fd,#bbdefb) !important; border-left: 4px solid #4285F4 !important; }
-.insight-achievement      { background: linear-gradient(135deg,#fff8e1,#ffecb3) !important; border-left: 4px solid #fbbc04 !important; }
-.insight-info             { background: linear-gradient(135deg,#f5f7ff,#e8eaf6) !important; border-left: 4px solid #7986cb !important; }
-.insight-milestone        { background: linear-gradient(135deg,#f3e5f5,#e1bee7) !important; border-left: 4px solid #9c27b0 !important; }
-.insight-ready_to_progress{ background: linear-gradient(135deg,#e8f5e9,#c8e6c9) !important; border-left: 4px solid #2e7d32 !important; }
+.insight-improvement       { background: #f0fdf4 !important; border-left: 4px solid #34a853 !important; }
+.insight-concern           { background: #fff1f2 !important; border-left: 4px solid #ea4335 !important; }
+.insight-suggestion        { background: #eff6ff !important; border-left: 4px solid #4285F4 !important; }
+.insight-achievement       { background: #fffbeb !important; border-left: 4px solid #fbbc04 !important; }
+.insight-info              { background: #eef2ff !important; border-left: 4px solid #7986cb !important; }
+.insight-milestone         { background: #faf5ff !important; border-left: 4px solid #9c27b0 !important; }
+.insight-ready_to_progress { background: #f0fdf4 !important; border-left: 4px solid #2e7d32 !important; }
 
-/* ── Recommendation box ─────────────────────────────────────────────────── */
+/* ── Recommendation box ──────────────────────────────────────────────────── */
 .recommendation-box { border-radius: 16px !important; padding: 20px 24px !important; margin: 16px 0 !important; font-size: 16px !important; font-weight: 700 !important; text-align: center !important; }
 
-/* ── Hero card — DARK BLUE with WHITE text ──────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   HERO — white card, navy title, blue accents. Clean. Always readable.
+   ══════════════════════════════════════════════════════════════════════════ */
 .physio-hero {
-    background: linear-gradient(135deg, #1a237e 0%, #283593 40%, #1565c0 100%) !important;
+    background: linear-gradient(145deg, #ffffff 0%, #eef2ff 60%, #e8edf8 100%) !important;
     border-radius: 20px !important;
-    box-shadow: 0 4px 24px rgba(26,35,126,0.3) !important;
+    border: 1px solid #dde1f5 !important;
+    box-shadow: 0 4px 32px rgba(66,133,244,0.10), 0 1px 4px rgba(26,35,126,0.06) !important;
 }
-/* specificity (0,2,1) beats the global .dark .gradio-container * (0,2,0) */
-.gradio-container .physio-hero h1 { color: #ffffff !important; font-size: 2.6em !important; font-weight: 800 !important; letter-spacing: -0.02em !important; margin: 0 !important; }
-.gradio-container .physio-hero p  { color: #e8eaf6 !important; font-size: 1.15em !important; }
-.gradio-container .physio-hero p .hero-strong { color: #ffffff !important; font-weight: 700 !important; }
-.gradio-container .physio-hero p .hero-accent { color: #90caf9 !important; font-weight: 700 !important; }
-
-/* ── Hero badges — visible on dark blue ────────────────────────────────── */
-.hero-badge {
-    display: inline-block !important;
-    padding: 7px 18px !important;
-    border-radius: 20px !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    margin: 4px !important;
-    letter-spacing: 0.02em !important;
+/* specificity (0,2,1) beats .dark .gradio-container * (0,2,0) */
+.gradio-container .physio-hero h1 {
+    color: #1a237e !important; font-size: 2.6em !important; font-weight: 800 !important;
+    letter-spacing: -0.02em !important; margin: 0 !important;
 }
-.gradio-container .badge-agent   { background: rgba(144,202,249,0.2) !important; color: #90caf9 !important; border: 1px solid rgba(144,202,249,0.5) !important; }
-.gradio-container .badge-rag     { background: rgba(129,201,149,0.2) !important; color: #81c995 !important; border: 1px solid rgba(129,201,149,0.5) !important; }
-.gradio-container .badge-clinical{ background: rgba(253,214,99,0.2)  !important; color: #fdd663 !important; border: 1px solid rgba(253,214,99,0.5)  !important; }
+.gradio-container .physio-hero p           { color: #374151 !important; font-size: 1.15em !important; }
+.gradio-container .physio-hero .hero-strong { color: #1a237e !important; font-weight: 700 !important; }
+.gradio-container .physio-hero .hero-accent { color: #4285F4 !important; font-weight: 700 !important; }
 
-/* ── Trust items — light on dark hero ──────────────────────────────────── */
+/* ── Hero feature badges ─────────────────────────────────────────────────── */
+.hero-badge { display: inline-block !important; padding: 7px 18px !important; border-radius: 20px !important; font-size: 13px !important; font-weight: 700 !important; margin: 4px !important; }
+.gradio-container .badge-agent    { background: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important; }
+.gradio-container .badge-rag      { background: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; }
+.gradio-container .badge-clinical { background: #fef9c3 !important; color: #854d0e !important; border: 1px solid #fde68a !important; }
+
+/* ── Hero trust items ────────────────────────────────────────────────────── */
 .gradio-container .trust-item {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    padding: 7px 16px !important;
-    background: rgba(255,255,255,0.15) !important;
-    border-radius: 20px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    color: #e8eaf6 !important;
-    margin: 4px !important;
-    border: 1px solid rgba(255,255,255,0.3) !important;
+    display: inline-flex !important; align-items: center !important; gap: 6px !important;
+    padding: 7px 16px !important; background: #eef2ff !important;
+    border-radius: 20px !important; font-size: 13px !important; font-weight: 600 !important;
+    color: #374151 !important; margin: 4px !important; border: 1px solid #c5cae9 !important;
 }
 
-/* ── Accordion & misc ───────────────────────────────────────────────────── */
+/* ── Misc ────────────────────────────────────────────────────────────────── */
 footer { display: none !important; }
-.accordion, .dark .accordion { border-radius: 12px !important; background: #ffffff !important; }
-.accordion *, .accordion label, .accordion span { color: #1e293b !important; }
-.markdown-text *, .prose * { color: #1e293b !important; }
 """
 
 # ── localStorage JS bridge ──────────────────────────────────────────────────
@@ -811,10 +750,7 @@ def build_app():
 
         # ── Hero Section ──
         gr.HTML("""
-        <div class="physio-hero" style="text-align: center; padding: 32px 24px 28px 24px;
-                    background: linear-gradient(135deg, #e8eaf6 0%, #dde1f5 40%, #c5cae9 100%);
-                    border-radius: 20px; margin-bottom: 16px;
-                    box-shadow: 0 4px 24px rgba(26,35,126,0.15);">
+        <div class="physio-hero" style="text-align: center; padding: 40px 28px 32px 28px; margin-bottom: 16px;">
 
             <h1 style="font-size: 2.6em; margin: 0;
                         font-weight: 800; letter-spacing: -0.02em;">
