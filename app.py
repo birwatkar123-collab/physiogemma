@@ -317,7 +317,7 @@ DATA_FIELDS = {
     "Characteristic": "characteristic",
     "Occupation": "occupation",
     "Medical Hx": "comorbidities",
-    "Prescription": "level",
+    "Exercise Recommendations": "level",
 }
 
 
