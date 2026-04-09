@@ -233,10 +233,11 @@ button.secondary, .dark button.secondary {
     border-radius: 20px !important;
     box-shadow: 0 4px 24px rgba(26,35,126,0.3) !important;
 }
-.physio-hero h1 { color: #ffffff !important; font-size: 2.6em !important; font-weight: 800 !important; letter-spacing: -0.02em !important; margin: 0 !important; }
-.physio-hero p  { color: #e8eaf6 !important; font-size: 1.15em !important; }
-.physio-hero p .hero-strong { color: #ffffff !important; font-weight: 700 !important; }
-.physio-hero p .hero-accent { color: #90caf9 !important; font-weight: 700 !important; }
+/* specificity (0,2,1) beats the global .dark .gradio-container * (0,2,0) */
+.gradio-container .physio-hero h1 { color: #ffffff !important; font-size: 2.6em !important; font-weight: 800 !important; letter-spacing: -0.02em !important; margin: 0 !important; }
+.gradio-container .physio-hero p  { color: #e8eaf6 !important; font-size: 1.15em !important; }
+.gradio-container .physio-hero p .hero-strong { color: #ffffff !important; font-weight: 700 !important; }
+.gradio-container .physio-hero p .hero-accent { color: #90caf9 !important; font-weight: 700 !important; }
 
 /* ── Hero badges — visible on dark blue ────────────────────────────────── */
 .hero-badge {
@@ -248,12 +249,12 @@ button.secondary, .dark button.secondary {
     margin: 4px !important;
     letter-spacing: 0.02em !important;
 }
-.badge-agent   { background: rgba(144,202,249,0.2) !important; color: #90caf9 !important; border: 1px solid rgba(144,202,249,0.5) !important; }
-.badge-rag     { background: rgba(129,201,149,0.2) !important; color: #81c995 !important; border: 1px solid rgba(129,201,149,0.5) !important; }
-.badge-clinical{ background: rgba(253,214,99,0.2)  !important; color: #fdd663 !important; border: 1px solid rgba(253,214,99,0.5)  !important; }
+.gradio-container .badge-agent   { background: rgba(144,202,249,0.2) !important; color: #90caf9 !important; border: 1px solid rgba(144,202,249,0.5) !important; }
+.gradio-container .badge-rag     { background: rgba(129,201,149,0.2) !important; color: #81c995 !important; border: 1px solid rgba(129,201,149,0.5) !important; }
+.gradio-container .badge-clinical{ background: rgba(253,214,99,0.2)  !important; color: #fdd663 !important; border: 1px solid rgba(253,214,99,0.5)  !important; }
 
 /* ── Trust items — light on dark hero ──────────────────────────────────── */
-.trust-item {
+.gradio-container .trust-item {
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
