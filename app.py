@@ -30,9 +30,28 @@ THEME = gr.themes.Soft(
 )
 
 CSS = """
-/* ── Global ────────────────────────────────────────────────────────────── */
+/* ── Global — Gemma brand palette ─────────────────────────────────────── */
+/* Primary: #4285F4 (Gemma Blue)  Accent: #8ab4f8 (Light Gemma)
+   Deep: #1a237e (Navy)  Surface: #e8eaf6 (Indigo tint)
+   Success: #34a853  Warning: #fbbc04  Error: #ea4335              */
 .gradio-container { max-width: 1100px !important; }
 * { transition: box-shadow 0.2s ease, transform 0.2s ease; }
+
+/* ── Force readable text everywhere ───────────────────────────────────── */
+.gradio-container, .gradio-container *, .prose *, .markdown-text *,
+.chatbot *, .message *, span, p, li, td, th, label, h1, h2, h3, h4, h5, h6 {
+    color: #1e293b;
+}
+.dark .gradio-container * { color: #1e293b; }
+.chatbot .message-wrap .bot, .chatbot .message-wrap .bot *,
+.chatbot .message-wrap .bot p, .chatbot .message-wrap .bot span,
+.chatbot .message-wrap .bot li, .chatbot .message-wrap .bot strong {
+    color: #1e293b !important;
+}
+.chatbot .message-wrap .user, .chatbot .message-wrap .user *,
+.chatbot .message-wrap .user p, .chatbot .message-wrap .user span {
+    color: #ffffff !important;
+}
 
 /* ── Chat bubbles ──────────────────────────────────────────────────────── */
 .message-wrap .message {
@@ -44,30 +63,43 @@ CSS = """
 }
 .message-wrap .bot {
     background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+    border: 1px solid #c5cae9 !important;
+    box-shadow: 0 2px 8px rgba(26,35,126,0.06) !important;
     border-radius: 16px 16px 16px 4px !important;
+    color: #1e293b !important;
+}
+.message-wrap .bot * {
+    color: #1e293b !important;
+}
+.message-wrap .bot code {
+    color: #1a237e !important;
+    background: #e8eaf6 !important;
 }
 .message-wrap .user {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    background: linear-gradient(135deg, #4285F4 0%, #1a73e8 100%) !important;
     color: #ffffff !important;
     border-radius: 16px 16px 4px 16px !important;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.25) !important;
+    box-shadow: 0 2px 10px rgba(66,133,244,0.3) !important;
+}
+.message-wrap .user * {
+    color: #ffffff !important;
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────── */
 button.primary {
+    background: linear-gradient(135deg, #4285F4, #1a73e8) !important;
     border-radius: 12px !important;
     font-weight: 700 !important;
     letter-spacing: 0.02em !important;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.2) !important;
+    box-shadow: 0 2px 8px rgba(66,133,244,0.25) !important;
 }
 button.primary:hover {
-    box-shadow: 0 4px 16px rgba(37,99,235,0.35) !important;
+    box-shadow: 0 4px 16px rgba(66,133,244,0.4) !important;
     transform: translateY(-1px);
 }
 button.secondary {
     border-radius: 12px !important;
+    border-color: #c5cae9 !important;
 }
 
 /* ── Tabs ──────────────────────────────────────────────────────────────── */
@@ -78,27 +110,27 @@ button.secondary {
     border-radius: 12px 12px 0 0 !important;
 }
 .tabs > .tab-nav > button.selected {
-    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%) !important;
-    border-bottom: 3px solid #2563eb !important;
-    color: #1e40af !important;
+    background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%) !important;
+    border-bottom: 3px solid #4285F4 !important;
+    color: #1a237e !important;
 }
 
 /* ── Exercise cards ────────────────────────────────────────────────────── */
 .exercise-card {
-    background: linear-gradient(145deg, #f8faff 0%, #eef6ff 50%, #f0fdf9 100%);
-    border: 1px solid #c7d9f0;
+    background: linear-gradient(145deg, #f5f7ff 0%, #e8eaf6 50%, #f0f4ff 100%);
+    border: 1px solid #c5cae9;
     border-radius: 16px;
     padding: 20px;
     margin: 12px 0;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px rgba(26,35,126,0.04);
 }
 .exercise-card:hover {
-    box-shadow: 0 6px 24px rgba(37,99,235,0.1);
+    box-shadow: 0 6px 24px rgba(66,133,244,0.12);
     transform: translateY(-2px);
-    border-color: #93b8f0;
+    border-color: #8ab4f8;
 }
 .exercise-card h4 {
-    color: #1e40af;
+    color: #1a237e;
     margin: 0 0 10px 0;
     font-size: 17px;
     font-weight: 700;
@@ -123,9 +155,9 @@ button.secondary {
     font-weight: 700;
     letter-spacing: 0.03em;
 }
-.ex-badge-sets { background: #dbeafe; color: #1e40af; }
-.ex-badge-reps { background: #d1fae5; color: #065f46; }
-.ex-badge-type { background: #ede9fe; color: #5b21b6; }
+.ex-badge-sets { background: #e3f2fd; color: #1565c0; }
+.ex-badge-reps { background: #e8f5e9; color: #2e7d32; }
+.ex-badge-type { background: #ede7f6; color: #6a1b9a; }
 .exercise-card a {
     display: block;
     margin-top: 12px;
@@ -134,7 +166,7 @@ button.secondary {
     box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
 .exercise-card a:hover {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 20px rgba(66,133,244,0.2);
     transform: scale(1.01);
 }
 
@@ -147,24 +179,24 @@ button.secondary {
     line-height: 1.6;
 }
 .reasoning-action {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border-left: 4px solid #3b82f6;
+    background: linear-gradient(135deg, #e8eaf6, #c5cae9);
+    border-left: 4px solid #4285F4;
 }
 .reasoning-observation {
-    background: linear-gradient(135deg, #f0fdf4, #d1fae5);
-    border-left: 4px solid #10b981;
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    border-left: 4px solid #34a853;
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
 }
 .reasoning-warning {
-    background: linear-gradient(135deg, #fff5f5, #fef2f2);
-    border-left: 4px solid #ef4444;
+    background: linear-gradient(135deg, #fce4ec, #ffcdd2);
+    border-left: 4px solid #ea4335;
 }
 .tool-badge {
     display: inline-block;
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border: 1px solid #93c5fd;
-    color: #1d4ed8;
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    border: 1px solid #8ab4f8;
+    color: #1a237e;
     padding: 3px 12px;
     border-radius: 20px;
     font-size: 11px;
@@ -191,41 +223,42 @@ button.secondary {
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .progress-done {
-    background: linear-gradient(135deg, #10b981, #059669);
+    background: linear-gradient(135deg, #4285F4, #1a73e8);
     color: white;
-    box-shadow: 0 2px 8px rgba(16,185,129,0.25);
+    box-shadow: 0 2px 8px rgba(66,133,244,0.3);
 }
-.progress-pending { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+.progress-pending { background: #e8eaf6; color: #3949ab; border: 1px solid #c5cae9; }
 
 /* ── Stat cards ────────────────────────────────────────────────────────── */
 .stat-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: linear-gradient(145deg, #ffffff 0%, #f5f7ff 100%);
+    border: 1px solid #c5cae9;
     border-radius: 16px;
     padding: 20px 16px;
     text-align: center;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px rgba(26,35,126,0.04);
 }
 .stat-card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 6px 20px rgba(66,133,244,0.1);
     transform: translateY(-2px);
+    border-color: #8ab4f8;
 }
 .stat-card .stat-icon { font-size: 28px; margin-bottom: 4px; }
-.stat-card h3 { color: #1e293b; margin: 4px 0 2px 0; font-size: 30px; font-weight: 800; }
-.stat-card p { color: #64748b; margin: 0; font-size: 13px; font-weight: 500; }
+.stat-card h3 { color: #1a237e; margin: 4px 0 2px 0; font-size: 30px; font-weight: 800; }
+.stat-card p { color: #5c6bc0; margin: 0; font-size: 13px; font-weight: 500; }
 
 /* ── Milestones ────────────────────────────────────────────────────────── */
 .milestone-badge {
     display: inline-block;
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    border: 1px solid #f59e0b;
+    background: linear-gradient(135deg, #fff8e1, #ffecb3);
+    border: 1px solid #fbbc04;
     border-radius: 24px;
     padding: 8px 16px;
     font-size: 13px;
     margin: 4px;
-    color: #92400e;
+    color: #e65100;
     font-weight: 700;
-    box-shadow: 0 2px 8px rgba(245,158,11,0.15);
+    box-shadow: 0 2px 8px rgba(251,188,4,0.2);
 }
 
 /* ── Insight cards ─────────────────────────────────────────────────────── */
@@ -237,13 +270,13 @@ button.secondary {
     line-height: 1.6;
     box-shadow: 0 1px 6px rgba(0,0,0,0.04);
 }
-.insight-improvement { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-left: 4px solid #10b981; }
-.insight-concern { background: linear-gradient(135deg, #fff5f5, #fef2f2); border-left: 4px solid #ef4444; }
-.insight-suggestion { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-left: 4px solid #3b82f6; }
-.insight-achievement { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-left: 4px solid #f59e0b; }
-.insight-info { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-left: 4px solid #94a3b8; }
-.insight-milestone { background: linear-gradient(135deg, #f5f3ff, #ede9fe); border-left: 4px solid #8b5cf6; }
-.insight-ready_to_progress { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-left: 4px solid #059669; }
+.insight-improvement { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-left: 4px solid #34a853; }
+.insight-concern { background: linear-gradient(135deg, #fce4ec, #ffcdd2); border-left: 4px solid #ea4335; }
+.insight-suggestion { background: linear-gradient(135deg, #e3f2fd, #bbdefb); border-left: 4px solid #4285F4; }
+.insight-achievement { background: linear-gradient(135deg, #fff8e1, #ffecb3); border-left: 4px solid #fbbc04; }
+.insight-info { background: linear-gradient(135deg, #f5f7ff, #e8eaf6); border-left: 4px solid #7986cb; }
+.insight-milestone { background: linear-gradient(135deg, #f3e5f5, #e1bee7); border-left: 4px solid #9c27b0; }
+.insight-ready_to_progress { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-left: 4px solid #2e7d32; }
 
 /* ── Recommendation box ────────────────────────────────────────────────── */
 .recommendation-box {
@@ -253,40 +286,43 @@ button.secondary {
     font-size: 16px;
     font-weight: 700;
     text-align: center;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgba(26,35,126,0.06);
 }
 
 /* ── Hero trust badges ─────────────────────────────────────────────────── */
 .hero-badge {
     display: inline-block;
-    padding: 5px 14px;
+    padding: 6px 16px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 700;
     margin: 3px;
     letter-spacing: 0.03em;
 }
-.badge-agent { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
-.badge-rag { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-.badge-clinical { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+.badge-agent { background: rgba(138,180,248,0.2); color: #8ab4f8; border: 1px solid rgba(138,180,248,0.4); }
+.badge-rag { background: rgba(52,168,83,0.15); color: #81c995; border: 1px solid rgba(52,168,83,0.3); }
+.badge-clinical { background: rgba(251,188,4,0.15); color: #fdd663; border: 1px solid rgba(251,188,4,0.3); }
 .trust-item {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    background: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.08);
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
-    color: #475569;
+    color: #c5cae9;
     margin: 3px;
     backdrop-filter: blur(4px);
-    border: 1px solid rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 /* ── Misc ──────────────────────────────────────────────────────────────── */
 footer { display: none !important; }
 .accordion { border-radius: 12px !important; }
+.accordion *, .accordion label, .accordion span { color: #1e293b !important; }
+.markdown-text, .markdown-text *, .prose, .prose * { color: #1e293b !important; }
+input, textarea { color: #1e293b !important; }
 """
 
 # ── localStorage JS bridge ──────────────────────────────────────────────────
@@ -826,17 +862,17 @@ def build_app():
         # ── Hero Section ──
         gr.HTML("""
         <div style="text-align: center; padding: 32px 24px 28px 24px;
-                    background: linear-gradient(135deg, #1e3a5f 0%, #0f4c75 30%, #10604d 100%);
+                    background: linear-gradient(135deg, #1a237e 0%, #283593 40%, #1565c0 100%);
                     border-radius: 20px; margin-bottom: 16px;
-                    box-shadow: 0 4px 24px rgba(0,0,0,0.12);">
+                    box-shadow: 0 4px 24px rgba(26,35,126,0.25);">
 
             <h1 style="font-size: 2.6em; margin: 0; color: #ffffff;
                         font-weight: 800; letter-spacing: -0.02em;">
                 &#129658; PhysioGemma
             </h1>
-            <p style="font-size: 1.15em; color: #cbd5e1; margin: 8px 0 16px 0; font-weight: 400;">
+            <p style="font-size: 1.15em; color: #c5cae9; margin: 8px 0 16px 0; font-weight: 400;">
                 AI Physiotherapy <strong style="color:#fff;">Agent</strong>
-                powered by <strong style="color:#6ee7b7;">Gemma 4</strong>
+                powered by <strong style="color:#8ab4f8;">Gemma 4</strong>
             </p>
 
             <div style="margin: 12px 0;">
