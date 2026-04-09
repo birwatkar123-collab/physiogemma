@@ -318,23 +318,21 @@ def _format_prescription_html(result: dict) -> str:
         "functional": "&#127947;"
     }
     for ex in plan["exercises"]:
-        video_id = ex.get("video") or ex.get("video_id") or ""
+        video_id = (ex.get("video") or ex.get("video_id") or "").strip()
         video_embed = ""
         if video_id:
-            yt_url = f"https://www.youtube.com/watch?v={video_id}"
-            # Use a styled button link — external thumbnail images are blocked by
-            # HuggingFace Spaces CSP, so we show a clickable "Watch on YouTube" button.
+            yt_embed = f"https://www.youtube.com/embed/{video_id}?rel=0&modestbranding=1"
+            ex_title = ex["name"] + " exercise video"
             video_embed = (
-                f'<a href="{yt_url}" target="_blank" '
-                f'style="display:inline-flex; align-items:center; gap:10px; '
-                f'margin-top:12px; padding:10px 18px; '
-                f'background:linear-gradient(135deg,#ff0000,#cc0000); '
-                f'color:#ffffff; font-weight:700; font-size:14px; '
-                f'border-radius:10px; text-decoration:none; '
-                f'box-shadow:0 2px 8px rgba(204,0,0,0.3);">'
-                f'<span style="font-size:20px; color:#ffffff;">&#9654;</span>'
-                f'<span style="color:#ffffff;">Watch on YouTube</span>'
-                f'</a>'
+                f'<div style="margin-top:14px; border-radius:12px; overflow:hidden; '
+                f'position:relative; width:100%; aspect-ratio:16/9;">'
+                f'<iframe src="{yt_embed}" '
+                f'style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" '
+                f'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+                f'gyroscope; picture-in-picture; web-share" '
+                f'allowfullscreen loading="lazy" title="{ex_title}">'
+                f'</iframe>'
+                f'</div>'
             )
         icon = type_icons.get(ex.get("type", ""), "&#127947;")
         ex_type = ex.get("type", "general").title()

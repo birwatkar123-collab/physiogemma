@@ -684,7 +684,7 @@ AGGRAVATION_MODIFIERS = {
         "add": [
             {"name": "Prone Press-Up (McKenzie)", "sets": 2, "reps": "10", "type": "mobility",
              "instruction": "Lie face down. Press upper body up with arms, keeping hips on floor. Counteracts flexion loading from sitting.",
-             "video_id": "8k-ZmkKm0DY"},
+             "video": "8k-ZmkKm0DY"},
         ],
         "swap_rules": {},
         "note": "Avoid prolonged sitting during exercises. Use standing or lying alternatives where possible."
