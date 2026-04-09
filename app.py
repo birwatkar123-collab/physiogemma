@@ -299,9 +299,9 @@ button.secondary {
     margin: 3px;
     letter-spacing: 0.03em;
 }
-.badge-agent { background: rgba(138,180,248,0.2); color: #8ab4f8; border: 1px solid rgba(138,180,248,0.4); }
-.badge-rag { background: rgba(52,168,83,0.15); color: #81c995; border: 1px solid rgba(52,168,83,0.3); }
-.badge-clinical { background: rgba(251,188,4,0.15); color: #fdd663; border: 1px solid rgba(251,188,4,0.3); }
+.badge-agent { background: rgba(138,180,248,0.2); color: #8ab4f8 !important; border: 1px solid rgba(138,180,248,0.4); }
+.badge-rag { background: rgba(52,168,83,0.15); color: #81c995 !important; border: 1px solid rgba(52,168,83,0.3); }
+.badge-clinical { background: rgba(251,188,4,0.15); color: #fdd663 !important; border: 1px solid rgba(251,188,4,0.3); }
 .trust-item {
     display: inline-flex;
     align-items: center;
@@ -311,11 +311,17 @@ button.secondary {
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
-    color: #c5cae9;
+    color: #c5cae9 !important;
     margin: 3px;
     backdrop-filter: blur(4px);
     border: 1px solid rgba(255,255,255,0.1);
 }
+
+/* ── Hero section — override global dark-text rule for white-on-dark card ── */
+.physio-hero h1 { color: #ffffff !important; }
+.physio-hero p  { color: #c5cae9 !important; }
+.physio-hero p .hero-strong  { color: #ffffff !important; }
+.physio-hero p .hero-accent  { color: #8ab4f8 !important; }
 
 /* ── Misc ──────────────────────────────────────────────────────────────── */
 footer { display: none !important; }
@@ -861,18 +867,18 @@ def build_app():
 
         # ── Hero Section ──
         gr.HTML("""
-        <div style="text-align: center; padding: 32px 24px 28px 24px;
+        <div class="physio-hero" style="text-align: center; padding: 32px 24px 28px 24px;
                     background: linear-gradient(135deg, #1a237e 0%, #283593 40%, #1565c0 100%);
                     border-radius: 20px; margin-bottom: 16px;
                     box-shadow: 0 4px 24px rgba(26,35,126,0.25);">
 
-            <h1 style="font-size: 2.6em; margin: 0; color: #ffffff;
+            <h1 style="font-size: 2.6em; margin: 0;
                         font-weight: 800; letter-spacing: -0.02em;">
                 &#129658; PhysioGemma
             </h1>
-            <p style="font-size: 1.15em; color: #c5cae9; margin: 8px 0 16px 0; font-weight: 400;">
-                AI Physiotherapy <strong style="color:#fff;">Agent</strong>
-                powered by <strong style="color:#8ab4f8;">Gemma 4</strong>
+            <p style="font-size: 1.15em; margin: 8px 0 16px 0; font-weight: 400;">
+                AI Physiotherapy <span class="hero-strong">Agent</span>
+                powered by <span class="hero-accent">Gemma 4</span>
             </p>
 
             <div style="margin: 12px 0;">
