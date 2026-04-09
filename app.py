@@ -322,18 +322,18 @@ def _format_prescription_html(result: dict) -> str:
         video_embed = ""
         if video_id:
             yt_url = f"https://www.youtube.com/watch?v={video_id}"
-            thumb_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+            # Use a styled button link — external thumbnail images are blocked by
+            # HuggingFace Spaces CSP, so we show a clickable "Watch on YouTube" button.
             video_embed = (
                 f'<a href="{yt_url}" target="_blank" '
-                f'style="display:block; position:relative; margin-top:12px; '
-                f'border-radius:12px; overflow:hidden; max-width:100%;">'
-                f'<img src="{thumb_url}" '
-                f'style="width:100%; border-radius:12px; display:block;" '
-                f'alt="Watch exercise video" />'
-                f'<span style="position:absolute; top:50%; left:50%; '
-                f'transform:translate(-50%,-50%); font-size:56px; '
-                f'color:#fff; text-shadow:0 2px 16px rgba(0,0,0,0.5); '
-                f'pointer-events:none;">&#9654;</span>'
+                f'style="display:inline-flex; align-items:center; gap:10px; '
+                f'margin-top:12px; padding:10px 18px; '
+                f'background:linear-gradient(135deg,#ff0000,#cc0000); '
+                f'color:#ffffff; font-weight:700; font-size:14px; '
+                f'border-radius:10px; text-decoration:none; '
+                f'box-shadow:0 2px 8px rgba(204,0,0,0.3);">'
+                f'<span style="font-size:20px; color:#ffffff;">&#9654;</span>'
+                f'<span style="color:#ffffff;">Watch on YouTube</span>'
                 f'</a>'
             )
         icon = type_icons.get(ex.get("type", ""), "&#127947;")
