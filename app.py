@@ -299,29 +299,29 @@ button.secondary {
     margin: 3px;
     letter-spacing: 0.03em;
 }
-.badge-agent { background: rgba(138,180,248,0.2); color: #8ab4f8 !important; border: 1px solid rgba(138,180,248,0.4); }
-.badge-rag { background: rgba(52,168,83,0.15); color: #81c995 !important; border: 1px solid rgba(52,168,83,0.3); }
-.badge-clinical { background: rgba(251,188,4,0.15); color: #fdd663 !important; border: 1px solid rgba(251,188,4,0.3); }
+.badge-agent { background: rgba(66,133,244,0.12); color: #1a73e8 !important; border: 1px solid rgba(66,133,244,0.35); }
+.badge-rag { background: rgba(52,168,83,0.12); color: #1b5e20 !important; border: 1px solid rgba(52,168,83,0.35); }
+.badge-clinical { background: rgba(230,81,0,0.1); color: #bf360c !important; border: 1px solid rgba(230,81,0,0.3); }
 .trust-item {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.6);
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
-    color: #c5cae9 !important;
+    color: #1e293b !important;
     margin: 3px;
     backdrop-filter: blur(4px);
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(26,35,126,0.15);
 }
 
-/* ── Hero section — override global dark-text rule for white-on-dark card ── */
-.physio-hero h1 { color: #ffffff !important; }
-.physio-hero p  { color: #c5cae9 !important; }
-.physio-hero p .hero-strong  { color: #ffffff !important; }
-.physio-hero p .hero-accent  { color: #8ab4f8 !important; }
+/* ── Hero section — dark text on light indigo background ── */
+.physio-hero h1 { color: #1a237e !important; }
+.physio-hero p  { color: #374151 !important; }
+.physio-hero p .hero-strong  { color: #1a237e !important; }
+.physio-hero p .hero-accent  { color: #1565c0 !important; }
 
 /* ── Misc ──────────────────────────────────────────────────────────────── */
 footer { display: none !important; }
@@ -868,9 +868,9 @@ def build_app():
         # ── Hero Section ──
         gr.HTML("""
         <div class="physio-hero" style="text-align: center; padding: 32px 24px 28px 24px;
-                    background: linear-gradient(135deg, #1a237e 0%, #283593 40%, #1565c0 100%);
+                    background: linear-gradient(135deg, #e8eaf6 0%, #dde1f5 40%, #c5cae9 100%);
                     border-radius: 20px; margin-bottom: 16px;
-                    box-shadow: 0 4px 24px rgba(26,35,126,0.25);">
+                    box-shadow: 0 4px 24px rgba(26,35,126,0.15);">
 
             <h1 style="font-size: 2.6em; margin: 0;
                         font-weight: 800; letter-spacing: -0.02em;">
