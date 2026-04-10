@@ -317,7 +317,7 @@ EXERCISES = {
                 "goal": "Pain relief, reduce nerve irritation",
                 "exercises": [
                     {"name": "Prone Lying", "sets": 3, "reps": "5 min", "type": "mobility",
-                     "video": "8k-ZmkKm0DY", "instruction": "Lie face down on firm surface. Place pillow under hips if needed. Breathe deeply and relax."},
+                     "video": "D29jKfgEmA4", "instruction": "Lie face down on firm surface. Place pillow under hips if needed. Breathe deeply and relax."},
                     {"name": "Prone on Elbows (McKenzie)", "sets": 3, "reps": "30s hold", "type": "mobility",
                      "video": "8k-ZmkKm0DY", "instruction": "Lie face down. Prop up on elbows. Keep hips on floor. Hold if pain centralizes (moves toward spine)."},
                     {"name": "Knee-to-Chest (Unaffected Side)", "sets": 2, "reps": "30s hold", "type": "stretching",
@@ -1077,7 +1077,7 @@ def tool_get_exercise_prescription(
     exercises_summary = [
         {"name": ex["name"], "sets": ex["sets"], "reps": ex["reps"],
          "type": ex.get("type", "general"), "instruction": ex.get("instruction", ""),
-         "video": ex.get("video", "")}
+         "video": ex.get("video") or ex.get("video_id") or ""}
         for ex in plan["exercises"]
     ]
 
