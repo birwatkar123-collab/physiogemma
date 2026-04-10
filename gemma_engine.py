@@ -291,8 +291,8 @@ def process_message(message: str, history: list, state: dict) -> tuple:
     try:
         client = get_client()
 
-        # Trim history to last 6 messages for speed (keep context manageable)
-        trimmed_history = history[-6:] if len(history) > 6 else history
+        # Trim history to last 10 messages for better context retention
+        trimmed_history = history[-10:] if len(history) > 10 else history
 
         contents = []
         for msg in trimmed_history:
@@ -305,14 +305,56 @@ def process_message(message: str, history: list, state: dict) -> tuple:
         # RAG: inject relevant clinical knowledge when condition is known
         condition = state.get("collected", {}).get("condition", "")
         retrieved_knowledge = retrieve_knowledge(condition)
+
+        # Build collected data summary so Gemma always has full patient context
+        collected = state.get("collected", {})
+        collected_summary = ""
+        if collected:
+            parts = []
+            if collected.get("condition"):
+                parts.append(f"condition={collected['condition']}")
+            if collected.get("pain_vas") or collected.get("intensity_vas"):
+                parts.append(f"pain_vas={collected.get('pain_vas') or collected.get('intensity_vas')}")
+            if collected.get("age"):
+                parts.append(f"age={collected['age']}")
+            if collected.get("tendency"):
+                parts.append(f"tendency={collected['tendency']}")
+            if collected.get("characteristic"):
+                parts.append(f"characteristic={collected['characteristic']}")
+            if collected.get("occupation"):
+                parts.append(f"occupation={collected['occupation']}")
+            if collected.get("physical_demands"):
+                parts.append(f"physical_demands={collected['physical_demands']}")
+            if collected.get("comorbidities"):
+                parts.append(f"comorbidities={collected['comorbidities']}")
+            if collected.get("aggravating_factors"):
+                parts.append(f"aggravating_factors={collected['aggravating_factors']}")
+            if collected.get("reducing_factors"):
+                parts.append(f"reducing_factors={collected['reducing_factors']}")
+            if collected.get("is_chronic") is not None:
+                parts.append(f"is_chronic={collected['is_chronic']}")
+            if collected.get("height_cm"):
+                parts.append(f"height_cm={collected['height_cm']}")
+            if collected.get("weight_kg"):
+                parts.append(f"weight_kg={collected['weight_kg']}")
+            if collected.get("level"):
+                parts.append(f"exercise_level={collected['level']}")
+            if parts:
+                collected_summary = (
+                    "\n\n=== PATIENT DATA COLLECTED SO FAR (use these exact values in tool calls) ===\n"
+                    + " | ".join(parts)
+                    + "\nIMPORTANT: When calling tools, use the values above — do NOT guess or hallucinate missing values. "
+                    "If a required value is missing, ASK the patient for it before calling the tool."
+                )
+
+        system_prompt = AGENT_SYSTEM_PROMPT
         if retrieved_knowledge:
-            system_prompt = (
-                f"{AGENT_SYSTEM_PROMPT}\n\n"
-                f"=== RELEVANT CLINICAL KNOWLEDGE (use to improve accuracy) ===\n"
+            system_prompt += (
+                f"\n\n=== RELEVANT CLINICAL KNOWLEDGE (use to improve accuracy) ===\n"
                 f"{retrieved_knowledge}"
             )
-        else:
-            system_prompt = AGENT_SYSTEM_PROMPT
+        if collected_summary:
+            system_prompt += collected_summary
 
         # Optimized config: lower tokens + temperature for speed
         config = types.GenerateContentConfig(
@@ -370,7 +412,22 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                     if tool_name == "get_exercise_prescription" and "exercises" in result:
                         prescription_data = result
 
-                    # Track collected data from tool calls
+                    # Track ALL collected data from tool call arguments
+                    for key in ("condition", "pain_vas", "age", "tendency",
+                                "characteristic", "is_chronic", "comorbidity_count",
+                                "height_cm", "weight_kg"):
+                        if key in tool_args and tool_args[key] not in (None, "", 0):
+                            state["collected"][key] = tool_args[key]
+                    if "aggravating_factors" in tool_args and tool_args["aggravating_factors"]:
+                        state["collected"]["aggravating_factors"] = tool_args["aggravating_factors"]
+                    if "occupation_description" in tool_args and tool_args["occupation_description"]:
+                        state["collected"]["occupation"] = tool_args["occupation_description"]
+                    if "occupation_category" in tool_args and tool_args["occupation_category"]:
+                        state["collected"]["physical_demands"] = tool_args["occupation_category"]
+                    if tool_args.get("pain_vas"):
+                        state["collected"]["intensity_vas"] = tool_args["pain_vas"]
+
+                    # Track data from tool results
                     if tool_name == "determine_exercise_level" and "level" in result:
                         state["collected"]["level"] = result["level"]
                         state["collected"]["level_label"] = result.get("label", "")
@@ -378,10 +435,6 @@ def process_message(message: str, history: list, state: dict) -> tuple:
 
                     if tool_name == "classify_occupation" and "category" in result:
                         state["collected"]["physical_demands"] = result["category"]
-
-                    # Track condition from tool args for RAG on subsequent turns
-                    if "condition" in tool_args and tool_args["condition"]:
-                        state["collected"]["condition"] = tool_args["condition"]
 
                     if tool_name == "check_red_flags" and result.get("flags_found"):
                         state["collected"]["red_flags_detected"] = result["flags"]
