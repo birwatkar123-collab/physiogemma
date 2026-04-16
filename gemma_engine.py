@@ -24,6 +24,7 @@ from exercises import (
 from red_flags import tool_check_red_flags, format_red_flag_warning
 from progress import tool_analyze_progress
 from knowledge_base import retrieve_knowledge
+from imaging_parser import format_imaging_for_prompt
 
 # ── Gemma 4 client setup ────────────────────────────────────────────────────
 
@@ -356,6 +357,15 @@ def process_message(message: str, history: list, state: dict) -> tuple:
         if collected_summary:
             system_prompt += collected_summary
 
+        # OPTIONAL: inject imaging findings if the patient provided a radiology report.
+        # Completely skipped when no imaging data present — zero overhead for users
+        # who don't use this feature.
+        imaging_parsed = state.get("collected", {}).get("imaging")
+        if imaging_parsed and imaging_parsed.get("findings"):
+            imaging_block = format_imaging_for_prompt(imaging_parsed)
+            if imaging_block:
+                system_prompt += "\n\n" + imaging_block
+
         # Optimized config: lower tokens + temperature for speed
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -519,6 +529,9 @@ def _summarize_result(result: dict) -> str:
 def _extract_patient_info(state: dict, chain: list) -> dict:
     """Extract patient info from tool call arguments in reasoning chain."""
     info = dict(state.get("collected", {}))
+    # Preserve imaging findings so they surface in the profile display
+    if "imaging" in state.get("collected", {}):
+        info["imaging"] = state["collected"]["imaging"]
     for step in chain:
         if "args" in step:
             args = step["args"]

@@ -14,6 +14,7 @@ import json
 import gradio as gr
 from gemma_engine import process_message, get_client, MODEL_ID, AGENT_SYSTEM_PROMPT
 from exercises import EXERCISES
+from imaging_parser import parse_imaging_report, format_imaging_for_display
 from progress import (
     create_empty_progress, log_session, generate_recovery_chart,
     tool_analyze_progress, serialize_progress, deserialize_progress,
@@ -625,6 +626,7 @@ TOOL_LABELS = {
     "determine_exercise_level": "Determine Level",
     "get_exercise_prescription": "Generate Prescription",
     "analyze_progress": "Progress Analysis",
+    "parse_imaging_report": "Imaging Analysis",
 }
 
 
@@ -678,11 +680,13 @@ def _format_prescription_html(result: dict) -> str:
         if video_id:
             yt_url = f"https://www.youtube.com/watch?v={video_id}"
             thumb_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+            fallback_thumb = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
             video_embed = (
-                f'<a href="{yt_url}" target="_blank" '
+                f'<a href="{yt_url}" target="_top" '
                 f'style="display:block; position:relative; margin-top:14px; '
                 f'border-radius:14px; overflow:hidden; max-width:100%;">'
                 f'<img src="{thumb_url}" '
+                f'onerror="this.onerror=null;this.src=\'{fallback_thumb}\';" '
                 f'style="width:100%; border-radius:14px; display:block;" '
                 f'alt="Watch exercise video" />'
                 f'<span style="position:absolute; top:50%; left:50%; '
@@ -728,7 +732,7 @@ def _format_patient_profile(info: dict) -> str:
     body_info = f"{height} cm / {weight} kg" if height and weight else "N/A"
     vas = info.get('intensity_vas', info.get('pain_vas', 'N/A'))
 
-    return f"""### Clinical Assessment Summary
+    profile = f"""### Clinical Assessment Summary
 
 | Category | Detail |
 |----------|--------|
@@ -744,6 +748,15 @@ def _format_patient_profile(info: dict) -> str:
 | **Occupation** | {info.get('occupation', 'N/A')} ({info.get('physical_demands', 'N/A')}) |
 | **Prescription** | {plan_label} |
 """
+
+    # Append imaging findings if present (optional — only shown if patient provided a report)
+    imaging = info.get("imaging")
+    if imaging and imaging.get("findings"):
+        imaging_md = format_imaging_for_display(imaging)
+        if imaging_md:
+            profile += "\n\n---\n\n" + imaging_md
+
+    return profile
 
 
 # ── Stats cards HTML ────────────────────────────────────────────────────────
@@ -899,20 +912,29 @@ LOADING_MESSAGES = [
 ]
 
 
-def chat_loading(message: str, history: list, state: dict | None, progress_data: dict | None):
+def chat_loading(message: str, history: list, state: dict | None, progress_data: dict | None,
+                 imaging_report: str = ""):
     """Phase 1: Show user message + loading indicator immediately."""
     if not message or not message.strip():
         return history, state, progress_data, message
     history = history + [{"role": "user", "content": message}]
     loading_text = "Analyzing your condition..."
-    if state and state.get("collected", {}).get("condition"):
+    if imaging_report and imaging_report.strip():
+        loading_text = "Parsing imaging report & analyzing your condition..."
+    elif state and state.get("collected", {}).get("condition"):
         loading_text = "Generating your treatment plan..."
     history = history + [{"role": "assistant", "content": loading_text}]
     return history, state, progress_data, message
 
 
-def chat(message: str, history: list, state: dict | None, progress_data: dict | None):
-    """Phase 2: Process with agent and replace loading message."""
+def chat(message: str, history: list, state: dict | None, progress_data: dict | None,
+         imaging_report: str = ""):
+    """Phase 2: Process with agent and replace loading message.
+
+    Args:
+        imaging_report: OPTIONAL radiology report text. If empty/whitespace,
+                        no imaging processing occurs (zero overhead).
+    """
     if not message or not message.strip():
         return history, state, "", "", "", "", "", progress_data, serialize_progress(progress_data or {})
 
@@ -924,9 +946,34 @@ def chat(message: str, history: list, state: dict | None, progress_data: dict | 
     # Remove the loading placeholder before processing
     if history and history[-1].get("content") in (
         "Analyzing your condition...",
+        "Parsing imaging report & analyzing your condition...",
         "Generating your treatment plan...",
     ):
         history = history[:-1]
+
+    # ── OPTIONAL: Parse imaging report if provided ──────────────────────────
+    # This is Mode 1 of imaging integration (text-only, no scan plates).
+    # Completely skipped when field is empty — zero cost for non-users.
+    if imaging_report and imaging_report.strip():
+        try:
+            parsed = parse_imaging_report(imaging_report)
+            if parsed.get("findings") or parsed.get("red_flags"):
+                state["collected"]["imaging"] = parsed
+                # Auto-fill condition if not yet set and imaging gives a strong hint
+                if not state["collected"].get("condition") and parsed.get("condition_hints"):
+                    state["collected"]["condition"] = parsed["condition_hints"][0]
+                # Log a synthetic reasoning step for transparency in the UI
+                state.setdefault("all_reasoning", [])
+                state["all_reasoning"].append({
+                    "action": "parse_imaging_report",
+                    "args": {"report_length": len(imaging_report)},
+                })
+                state["all_reasoning"].append({
+                    "observation": "parse_imaging_report",
+                    "result": parsed.get("summary", "Parsed imaging report"),
+                })
+        except Exception as e:
+            print(f"[imaging] parse error: {e}")
 
     result, state = process_message(message, history, state)
 
@@ -986,7 +1033,7 @@ def chat(message: str, history: list, state: dict | None, progress_data: dict | 
 def reset():
     empty = create_empty_progress()
     return ([], None, _progress_html({}), "", "", "", "", empty,
-            serialize_progress(empty), "", gr.update(choices=[]))
+            serialize_progress(empty), "", gr.update(choices=[]), "")
 
 
 # ── Progress tab handlers ───────────────────────────────────────────────────
@@ -1199,6 +1246,25 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
 
 **8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
                     """)
+
+                # ── OPTIONAL: Radiology report (Mode 1 imaging) ──────────────
+                gr.HTML("""
+                <div style="background:#eff6ff; border:1px solid #bfdbfe;
+                            border-radius:12px; padding:12px 16px; margin:8px 0;">
+                    <p style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:#1e40af !important;">
+                        🩻 MRI / X-ray Report <span style="font-weight:400; color:#64748b !important;">(optional)</span>
+                    </p>
+                    <p style="margin:0; font-size:12px; color:#475569 !important; line-height:1.5;">
+                        Paste your written radiology report and PhysioGemma will tailor your prescription to your imaging findings.
+                        Leave empty to skip &mdash; text reports only, not scan images.
+                    </p>
+                </div>
+                """)
+                imaging_report_box = gr.Textbox(
+                    label="Radiology report text (leave empty to skip)",
+                    placeholder="Example: MRI Lumbar Spine — L4-L5 disc protrusion with mild left lateral recess stenosis. No nerve root impingement. L5-S1 mild disc bulge. No compression fracture.",
+                    lines=3,
+                )
 
                 progress_display = gr.HTML(value=_progress_html({}))
 
@@ -1416,21 +1482,21 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
 
         send_btn.click(
             fn=chat_loading,
-            inputs=[msg, chatbot, consultation_state, progress_state],
+            inputs=[msg, chatbot, consultation_state, progress_state, imaging_report_box],
             outputs=loading_outputs,
         ).then(lambda: "", outputs=msg).then(
             fn=chat,
-            inputs=[msg_holder, chatbot, consultation_state, progress_state],
+            inputs=[msg_holder, chatbot, consultation_state, progress_state, imaging_report_box],
             outputs=chat_outputs,
         ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
         msg.submit(
             fn=chat_loading,
-            inputs=[msg, chatbot, consultation_state, progress_state],
+            inputs=[msg, chatbot, consultation_state, progress_state, imaging_report_box],
             outputs=loading_outputs,
         ).then(lambda: "", outputs=msg).then(
             fn=chat,
-            inputs=[msg_holder, chatbot, consultation_state, progress_state],
+            inputs=[msg_holder, chatbot, consultation_state, progress_state, imaging_report_box],
             outputs=chat_outputs,
         ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
@@ -1438,7 +1504,8 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
             fn=reset,
             outputs=[chatbot, consultation_state, progress_display, profile_display,
                      exercises_display, reasoning_display, agent_chain_display,
-                     progress_state, progress_store, log_status, exercises_completed],
+                     progress_state, progress_store, log_status, exercises_completed,
+                     imaging_report_box],
         )
 
         # Log session
