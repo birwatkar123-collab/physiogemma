@@ -1032,31 +1032,8 @@ def chat(message: str, history: list, state: dict | None, progress_data: dict | 
 
 def reset():
     empty = create_empty_progress()
-    return (
-        None,                       # consultation_state
-        _progress_html({}),         # progress_display
-        "",                         # profile_display
-        "",                         # exercises_display
-        "",                         # reasoning_display
-        "",                         # agent_chain_display
-        empty,                      # progress_state
-        serialize_progress(empty),  # progress_store
-        "",                         # log_status
-        gr.update(choices=[]),      # exercises_completed
-        gr.update(visible=True),    # step1_group
-        gr.update(visible=False),   # step2_group
-        gr.update(visible=False),   # step3_group
-        "",                         # complaint_box
-        5,                          # pain_intake_slider
-        None,                       # duration_radio
-        [],                         # worse_when_cb
-        None,                       # age_radio
-        None,                       # occupation_radio
-        [],                         # comorbidities_cb
-        gr.update(value=None),      # cond_q1
-        gr.update(value=None),      # cond_q2
-        "",                         # imaging_report_box
-    )
+    return ([], None, _progress_html({}), "", "", "", "", empty,
+            serialize_progress(empty), "", gr.update(choices=[]), "")
 
 
 # ── Progress tab handlers ───────────────────────────────────────────────────
@@ -1192,323 +1169,6 @@ End with one actionable tip for their next session."""
     return insights_html, rec_html, ai_narrative
 
 
-# ── Condition Detection ─────────────────────────────────────────────────────
-
-CONDITION_KEYWORDS = {
-    "lower_back_pain":    ["lower back", "lumbar", "back pain", "lumbago", "backache", "back ache"],
-    "knee_oa":            ["knee pain", "knee arthritis", "knee oa", "knee replacement", " knee "],
-    "neck_pain":          ["neck pain", "cervical", "stiff neck", "whiplash", "neck ache", "neck"],
-    "frozen_shoulder":    ["frozen shoulder", "adhesive capsulitis", "shoulder stiff",
-                           "can't raise arm", "cannot raise arm", "shoulder pain", "shoulder"],
-    "sciatica":           ["sciatica", "sciatic", "shooting down leg", "radiating leg",
-                           "pain down leg", "nerve pain leg", "down my leg"],
-    "hip_oa":             ["hip pain", "hip arthritis", "hip oa", "groin pain", "hip replacement"],
-    "plantar_fasciitis":  ["heel pain", "plantar fasciitis", "plantar", "heel", "foot pain",
-                           "sole pain", "arch pain"],
-    "tennis_elbow":       ["tennis elbow", "lateral epicondyl", "outer elbow",
-                           "elbow pain", "elbow", "forearm pain"],
-}
-
-CONDITION_NAMES = {
-    "lower_back_pain":   "Lower Back Pain",
-    "knee_oa":           "Knee Osteoarthritis",
-    "neck_pain":         "Neck Pain / Cervicalgia",
-    "frozen_shoulder":   "Frozen Shoulder",
-    "sciatica":          "Sciatica / Lumbar Radiculopathy",
-    "hip_oa":            "Hip Osteoarthritis",
-    "plantar_fasciitis": "Plantar Fasciitis",
-    "tennis_elbow":      "Tennis Elbow (Lateral Epicondylitis)",
-    "unknown":           "Musculoskeletal Pain",
-}
-
-CONDITION_COLORS = {
-    "lower_back_pain":   ("#1e40af", "#eff6ff", "#bfdbfe"),
-    "knee_oa":           ("#059669", "#ecfdf5", "#a7f3d0"),
-    "neck_pain":         ("#7c3aed", "#f5f3ff", "#ddd6fe"),
-    "frozen_shoulder":   ("#0891b2", "#ecfeff", "#a5f3fc"),
-    "sciatica":          ("#dc2626", "#fef2f2", "#fecaca"),
-    "hip_oa":            ("#d97706", "#fffbeb", "#fde68a"),
-    "plantar_fasciitis": ("#0284c7", "#f0f9ff", "#bae6fd"),
-    "tennis_elbow":      ("#65a30d", "#f7fee7", "#d9f99d"),
-    "unknown":           ("#64748b", "#f8fafc", "#e2e8f0"),
-}
-
-CONDITION_SPECIFIC_Q = {
-    "lower_back_pain": {
-        "q1_label": "Does the pain radiate down to your leg(s)?",
-        "q1_choices": ["Yes — below the knee", "Yes — above knee only", "No radiation", "Sometimes"],
-        "q2_label": "Which position makes it worst?",
-        "q2_choices": ["Sitting (prolonged)", "Bending forward", "Standing / Walking", "All positions"],
-    },
-    "knee_oa": {
-        "q1_label": "Difficulty on stairs?",
-        "q1_choices": ["Yes — significant", "Yes — mild", "Avoid stairs", "No difficulty"],
-        "q2_label": "Knee swelling present?",
-        "q2_choices": ["Yes — constant", "Yes — after activity", "Occasional", "No swelling"],
-    },
-    "neck_pain": {
-        "q1_label": "Does the pain radiate to your arm or hand?",
-        "q1_choices": ["Yes — with numbness / tingling", "Yes — pain only", "No radiation", "Sometimes"],
-        "q2_label": "Daily screen / desk hours?",
-        "q2_choices": ["< 4 hours", "4–8 hours", "> 8 hours", "Varies"],
-    },
-    "frozen_shoulder": {
-        "q1_label": "Which shoulder is affected?",
-        "q1_choices": ["Right shoulder", "Left shoulder", "Both shoulders"],
-        "q2_label": "Which stage feels most accurate?",
-        "q2_choices": ["Getting progressively stiffer", "Very stiff, pain reducing", "Slowly improving (thawing)"],
-    },
-    "sciatica": {
-        "q1_label": "Which leg is affected?",
-        "q1_choices": ["Right leg", "Left leg", "Both legs", "Alternating"],
-        "q2_label": "Numbness or tingling in leg / foot?",
-        "q2_choices": ["Yes — constant", "Yes — intermittent", "No — pain only", "Weakness present"],
-    },
-    "hip_oa": {
-        "q1_label": "Do you have groin or inner thigh pain?",
-        "q1_choices": ["Yes — significant", "Yes — mild", "Only outer hip pain", "No groin pain"],
-        "q2_label": "Do you limp or use a walking aid?",
-        "q2_choices": ["Yes — noticeable limp", "Slight limp when tired", "Use walking stick", "No limp"],
-    },
-    "plantar_fasciitis": {
-        "q1_label": "First few morning steps — pain level?",
-        "q1_choices": ["Very painful (worst of day)", "Mild–moderate", "Worse end of day instead", "Same all day"],
-        "q2_label": "Your foot arch type?",
-        "q2_choices": ["Flat / Low arch", "Normal arch", "High arch", "Not sure"],
-    },
-    "tennis_elbow": {
-        "q1_label": "Is your dominant (writing) hand affected?",
-        "q1_choices": ["Yes — dominant hand", "No — non-dominant hand", "Both hands"],
-        "q2_label": "Grip weakness or dropping objects?",
-        "q2_choices": ["Yes — significant weakness", "Mild weakness", "Dropping objects", "Pain only, no weakness"],
-    },
-}
-
-DURATION_TENDENCY = {
-    "< 6 weeks  (Acute)":              "acute",
-    "6 weeks – 3 months  (Sub-acute)": "sub-acute",
-    "> 3 months  (Chronic)":           "chronic",
-}
-
-OCCUPATION_MAP = {
-    "Desk job / Sedentary":   ("desk worker",        "sedentary"),
-    "Light physical":         ("light physical worker", "light"),
-    "Manual labour":          ("manual labourer",    "heavy"),
-    "Student":                ("student",             "sedentary"),
-    "Retired / Homemaker":    ("retired/homemaker",  "light"),
-}
-
-
-def detect_condition(complaint: str) -> str:
-    if not complaint:
-        return "unknown"
-    text = complaint.lower()
-    for cond_key, keywords in CONDITION_KEYWORDS.items():
-        for kw in keywords:
-            if kw in text:
-                return cond_key
-    return "unknown"
-
-
-def pain_severity_html(pain_value) -> str:
-    v = int(float(pain_value or 0))
-    if v <= 3:
-        color, label, bg, emoji = "#10B981", "Mild", "#ecfdf5", "🟢"
-    elif v <= 7:
-        color, label, bg, emoji = "#f59e0b", "Moderate", "#fffbeb", "🟡"
-    else:
-        color, label, bg, emoji = "#ef4444", "Severe", "#fef2f2", "🔴"
-    return (
-        f'<div style="background:{bg}; border:1px solid {color}55; border-radius:10px; '
-        f'padding:10px 18px; text-align:center; margin:6px 0;">'
-        f'<span style="color:{color} !important; font-weight:800; font-size:18px;">'
-        f'{emoji}&nbsp; {label} &nbsp;·&nbsp; {v}/10</span>'
-        f'<span style="color:#64748b !important; font-size:12px; margin-left:14px;">'
-        f'Scale: 0–3 Mild &nbsp;·&nbsp; 4–7 Moderate &nbsp;·&nbsp; 8–10 Severe</span></div>'
-    )
-
-
-def build_condition_badge(condition_key: str) -> str:
-    name = CONDITION_NAMES.get(condition_key, "Unknown")
-    color, bg, border = CONDITION_COLORS.get(condition_key, ("#64748b", "#f8fafc", "#e2e8f0"))
-    recognized = condition_key != "unknown"
-    tag = (f'<span style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; '
-           f'background:{color}18; color:{color} !important; border:1px solid {color}44;">'
-           f'{"✓ Recognized" if recognized else "⚠ Not recognised — select condition below"}</span>')
-    return (
-        f'<div style="background:{bg}; border:1px solid {border}; border-radius:14px; '
-        f'padding:14px 18px; margin:0 0 8px 0;">'
-        f'<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">'
-        f'<span style="font-size:22px;">🔍</span>'
-        f'<div><p style="margin:0; font-size:11px; font-weight:600; color:#64748b !important; '
-        f'text-transform:uppercase; letter-spacing:0.08em;">Detected Condition</p>'
-        f'<p style="margin:0; font-size:18px; font-weight:800; color:{color} !important;">{name}</p></div>'
-        f'{tag}</div></div>'
-    )
-
-
-# ── Intake Form Handlers ─────────────────────────────────────────────────────
-
-def detect_and_show_form(complaint: str):
-    """Step 1 → Step 2: detect condition, show assessment form."""
-    if not complaint or not complaint.strip():
-        return (gr.update(), gr.update(), gr.update(), "", gr.update(), gr.update(), gr.update())
-
-    cond = detect_condition(complaint)
-    badge = build_condition_badge(cond)
-    cond_qs = CONDITION_SPECIFIC_Q.get(cond)
-    if cond_qs:
-        q1 = gr.update(choices=cond_qs["q1_choices"], label=cond_qs["q1_label"], visible=True, value=None)
-        q2 = gr.update(choices=cond_qs["q2_choices"], label=cond_qs["q2_label"], visible=True, value=None)
-        cg = gr.update(visible=True)
-    else:
-        q1 = gr.update(visible=False, value=None)
-        q2 = gr.update(visible=False, value=None)
-        cg = gr.update(visible=False)
-    return (
-        gr.update(visible=False),  # step1
-        gr.update(visible=True),   # step2
-        gr.update(visible=False),  # step3
-        badge,                     # condition_badge_html
-        cg,                        # cond_specific_group
-        q1,                        # cond_q1
-        q2,                        # cond_q2
-    )
-
-
-def process_intake_form(
-    complaint: str,
-    pain_value,
-    duration: str,
-    worse_when: list,
-    age_group: str,
-    occupation: str,
-    comorbidities_val: list,
-    cond_q1_val: str,
-    cond_q2_val: str,
-    imaging_report: str,
-    state: dict | None,
-    progress_data: dict | None,
-):
-    """Step 2 → Step 3: build state from form, call engine, return prescription."""
-    if not complaint or not complaint.strip():
-        return (gr.update(),) * 3 + ("", "", "", "", "", state, progress_data, serialize_progress({}))
-
-    if state is None:
-        state = {"collected": {}, "reasoning_chain": [], "prescription_generated": False}
-    if progress_data is None:
-        progress_data = create_empty_progress()
-
-    pain_int = int(float(pain_value or 5))
-    pain_label = "mild" if pain_int <= 3 else ("moderate" if pain_int <= 7 else "severe")
-
-    tendency = DURATION_TENDENCY.get(duration or "", "unknown")
-    age_mid  = {"18–30": "25", "31–45": "38", "46–60": "52", "60+": "65"}.get(age_group or "", "45")
-    occ_label, phys_dem = OCCUPATION_MAP.get(occupation or "", ("unknown", "unknown"))
-    comorbids = [c for c in (comorbidities_val or []) if c != "None"]
-    aggrav    = list(worse_when or [])
-    cond_key  = detect_condition(complaint)
-
-    state["collected"] = {
-        "condition":         cond_key if cond_key != "unknown" else None,
-        "pain_vas":          pain_int,
-        "intensity_vas":     pain_int,
-        "tendency":          tendency,
-        "characteristic":    "constant" if "At rest" in aggrav else "intermittent",
-        "aggravating_factors": aggrav,
-        "reducing_factors":  [],
-        "age":               age_mid,
-        "occupation":        occ_label,
-        "physical_demands":  phys_dem,
-        "comorbidities":     comorbids,
-        "comorbidity_count": len(comorbids),
-    }
-
-    # Condition-specific context
-    cond_ctx = ""
-    qs = CONDITION_SPECIFIC_Q.get(cond_key, {})
-    if qs and cond_q1_val:
-        cond_ctx += f"\n- {qs.get('q1_label','')}: {cond_q1_val}"
-    if qs and cond_q2_val:
-        cond_ctx += f"\n- {qs.get('q2_label','')}: {cond_q2_val}"
-
-    # Imaging
-    if imaging_report and imaging_report.strip():
-        try:
-            parsed = parse_imaging_report(imaging_report)
-            if parsed.get("findings") or parsed.get("red_flags"):
-                state["collected"]["imaging"] = parsed
-                if not state["collected"].get("condition") and parsed.get("condition_hints"):
-                    state["collected"]["condition"] = parsed["condition_hints"][0]
-                state.setdefault("all_reasoning", [])
-                state["all_reasoning"] += [
-                    {"action": "parse_imaging_report", "args": {"report_length": len(imaging_report)}},
-                    {"observation": "parse_imaging_report", "result": parsed.get("summary", "Parsed")},
-                ]
-        except Exception as e:
-            print(f"[imaging] {e}")
-
-    # Build rich intake message
-    cond_name   = CONDITION_NAMES.get(cond_key, "Unknown")
-    worse_str   = ", ".join(aggrav) if aggrav else "Not specified"
-    comorbid_str = ", ".join(comorbids) if comorbids else "None"
-    message = (
-        f"Patient intake:\n"
-        f"Condition: {cond_name}\n"
-        f"Pain: {pain_int}/10 ({pain_label})\n"
-        f"Duration: {duration or 'not stated'} — tendency: {tendency}\n"
-        f"Worse when: {worse_str}\n"
-        f"Age: {age_group or 'not stated'}\n"
-        f"Occupation: {occ_label} ({phys_dem} demands)\n"
-        f"Medical history: {comorbid_str}"
-        f"{cond_ctx}\n\n"
-        f"Generate the complete personalized exercise prescription."
-    )
-
-    result, state = process_message(message, [{"role": "user", "content": message}], state)
-
-    rc    = result.get("reasoning_chain", []) if isinstance(result, dict) else []
-    state.setdefault("all_reasoning", [])
-    state["all_reasoning"].extend(rc)
-
-    if isinstance(result, dict) and "plan" in result:
-        pt_info   = result.get("patient_info", {})
-        ex_html   = _format_prescription_html(result)
-        prof_md   = _format_patient_profile(pt_info)
-        state["collected"].update(pt_info)
-        plan      = result["plan"]
-        state["last_prescription"] = {
-            "exercise_names": [e["name"] for e in plan.get("exercises", [])],
-            "level":          plan.get("level", 0),
-            "condition":      plan.get("condition", ""),
-        }
-        progress_data["condition"]      = pt_info.get("condition", "")
-        progress_data["exercise_level"] = plan.get("level", 0)
-        prog_html  = _progress_html(state.get("collected", {}))
-        full_chain = _format_reasoning_chain(state.get("all_reasoning", []))
-        return (
-            gr.update(visible=False),
-            gr.update(visible=False),
-            gr.update(visible=True),
-            prog_html, prof_md, ex_html,
-            result.get("explanation", ""),
-            full_chain,
-            state, progress_data, serialize_progress(progress_data),
-        )
-
-    bot_msg    = result.get("text", str(result)) if isinstance(result, dict) else str(result)
-    full_chain = _format_reasoning_chain(state.get("all_reasoning", []))
-    return (
-        gr.update(visible=False),
-        gr.update(visible=False),
-        gr.update(visible=True),
-        _progress_html(state.get("collected", {})),
-        f"**Assessment note:**\n\n{bot_msg}",
-        "", "", full_chain,
-        state, progress_data, serialize_progress(progress_data),
-    )
-
-
 # ── Build Gradio app ────────────────────────────────────────────────────────
 
 def build_app():
@@ -1572,186 +1232,92 @@ def build_app():
         with gr.Tabs() as tabs:
 
             # ════════════════════════════════════════════════════════════
-            # TAB 1: CONSULTATION  (3-step intake flow)
+            # TAB 1: CONSULTATION
             # ════════════════════════════════════════════════════════════
             with gr.TabItem("Consultation", id="consult"):
 
-                # ── STEP 1 : Complaint ───────────────────────────────────
-                with gr.Group(visible=True) as step1_group:
-                    gr.HTML("""
-                    <div style="text-align:center; padding:18px 8px 6px 8px;">
-                        <p style="font-size:13px; font-weight:700; letter-spacing:0.12em;
-                                  text-transform:uppercase; color:#1a3c2a !important; margin:0 0 6px 0;">
-                            Step 1 of 2
-                        </p>
-                        <h2 style="font-size:1.5em; font-weight:800; color:#0f172a !important; margin:0 0 4px 0;">
-                            What's bothering you today?
-                        </h2>
-                        <p style="font-size:14px; color:#64748b !important; margin:0;">
-                            Describe your pain or condition in your own words
-                        </p>
-                    </div>""")
+                with gr.Accordion("How does the PhysioGemma Agent work?", open=False):
+                    gr.Markdown("""
+**PhysioGemma** is a **ReAct Agent** that autonomously conducts clinical assessments:
 
-                    complaint_box = gr.Textbox(
-                        label="",
-                        placeholder=(
-                            "Examples:\n"
-                            "• My lower back has been aching for 3 months, worse when sitting...\n"
-                            "• Knee pain when climbing stairs, 62 years old...\n"
-                            "• Pain shooting down my left leg from lower back...\n"
-                            "• Heel hurts every morning, stand all day at work..."
-                        ),
-                        lines=5,
-                        show_label=False,
+**5 Agent Tools:** Safety Check, Classify Occupation, Determine Exercise Level, Generate Prescription, Progress Analysis
+**+ RAG-Enhanced** clinical reasoning with condition-specific evidence injection
+
+Every tool call is logged in the **Reasoning Chain** for full transparency.
+
+**8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
+                    """)
+
+                # ── OPTIONAL: Radiology report (Mode 1 imaging) ──────────────
+                gr.HTML("""
+                <div style="background:#eff6ff; border:1px solid #bfdbfe;
+                            border-radius:12px; padding:12px 16px; margin:8px 0;">
+                    <p style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:#1e40af !important;">
+                        🩻 MRI / X-ray Report <span style="font-weight:400; color:#64748b !important;">(optional)</span>
+                    </p>
+                    <p style="margin:0; font-size:12px; color:#475569 !important; line-height:1.5;">
+                        Paste your written radiology report and PhysioGemma will tailor your prescription to your imaging findings.
+                        Leave empty to skip &mdash; text reports only, not scan images.
+                    </p>
+                </div>
+                """)
+                imaging_report_box = gr.Textbox(
+                    label="Radiology report text (leave empty to skip)",
+                    placeholder="Example: MRI Lumbar Spine — L4-L5 disc protrusion with mild left lateral recess stenosis. No nerve root impingement. L5-S1 mild disc bulge. No compression fracture.",
+                    lines=3,
+                )
+
+                progress_display = gr.HTML(value=_progress_html({}))
+
+                try:
+                    chatbot = gr.Chatbot(
+                        label="PhysioGemma Agent",
+                        height=420,
+                        type="messages",
+                        placeholder="Describe your pain or condition to begin...",
+                    )
+                except TypeError:
+                    chatbot = gr.Chatbot(
+                        label="PhysioGemma Agent",
+                        height=420,
+                        placeholder="Describe your pain or condition to begin...",
                     )
 
-                    gr.Examples(
-                        examples=[
-                            ["My lower back has been hurting for 3 months. Pain is about 6 out of 10. I'm 45, desk job."],
-                            ["I'm 62, knee pain for 6 months, worse going down stairs, some swelling."],
-                            ["Shoulder is frozen, can't raise my arm above 90°. 55 years old, started 4 months ago."],
-                            ["Pain shooting down my left leg from lower back, 7/10, age 38, IT job."],
-                            ["My heel hurts every morning, been 2 months, I stand all day at work."],
-                            ["Elbow pain on outer side, worse when gripping, I work in IT."],
-                        ],
-                        inputs=[complaint_box],
-                        label="Quick examples — click to fill:",
+                with gr.Row():
+                    msg = gr.Textbox(
+                        label="Your message",
+                        placeholder="Example: My lower back hurts for 3 months, pain 6/10, I'm 45, desk worker...",
+                        lines=2, scale=4,
                     )
+                    with gr.Column(scale=1, min_width=120):
+                        send_btn = gr.Button("Send", variant="primary", size="lg")
+                        reset_btn = gr.Button("New Assessment", variant="secondary", size="sm")
 
-                    with gr.Row():
-                        detect_btn = gr.Button("Start Assessment  →", variant="primary", size="lg", scale=3)
-                        gr.HTML('<div style="padding:6px 0; font-size:12px; color:#94a3b8 !important; '
-                                'align-self:center;">Takes ~10 seconds</div>')
+                gr.Examples(
+                    examples=[
+                        "My lower back has been hurting for 3 months. Pain is about 6 out of 10. I'm 45 years old.",
+                        "I'm 62, knee pain for 6 months, getting worse lately",
+                        "Shoulder is frozen, can't raise my arm. 55 years old, 4 months ago",
+                        "Pain shooting down my left leg from lower back, 7/10, age 38",
+                        "My heel hurts every morning, been 2 months, I stand all day at work",
+                        "Elbow pain on outer side, worse when gripping, I work in IT",
+                    ],
+                    inputs=msg,
+                    label="Try these examples:",
+                )
 
-                # ── STEP 2 : Assessment Form ─────────────────────────────
-                with gr.Group(visible=False) as step2_group:
+                gr.HTML("<hr class='section-divider'>")
 
-                    condition_badge_html = gr.HTML("")
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        profile_display = gr.Markdown(label="Clinical Assessment Summary")
+                    with gr.Column(scale=1):
+                        reasoning_display = gr.Markdown(label="Clinical Reasoning")
 
-                    # ── Pain intensity ──
-                    gr.HTML("""<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;
-                                           padding:14px 18px; margin:4px 0 2px 0;">
-                        <p style="margin:0 0 8px 0; font-size:13px; font-weight:700; color:#0f172a !important;">
-                            ① Pain Intensity
-                        </p>""")
-                    pain_intake_slider = gr.Slider(
-                        minimum=0, maximum=10, step=1, value=5,
-                        label="Move slider to your current pain level (0 = none, 10 = worst imaginable)",
-                    )
-                    pain_severity_display = gr.HTML(value=pain_severity_html(5))
-                    gr.HTML("</div>")
+                exercises_display = gr.HTML(label="Exercise Prescription")
 
-                    # ── Duration + Age ──
-                    gr.HTML("""<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;
-                                           padding:14px 18px; margin:8px 0 2px 0;">
-                        <p style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:#0f172a !important;">
-                            ② Duration &amp; Age
-                        </p>""")
-                    with gr.Row():
-                        duration_radio = gr.Radio(
-                            choices=["< 6 weeks  (Acute)",
-                                     "6 weeks – 3 months  (Sub-acute)",
-                                     "> 3 months  (Chronic)"],
-                            label="How long have you had this pain?",
-                            value=None,
-                        )
-                        age_radio = gr.Radio(
-                            choices=["18–30", "31–45", "46–60", "60+"],
-                            label="Your age group",
-                            value=None,
-                        )
-                    gr.HTML("</div>")
-
-                    # ── Worse when ──
-                    gr.HTML("""<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;
-                                           padding:14px 18px; margin:8px 0 2px 0;">
-                        <p style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:#0f172a !important;">
-                            ③ Pain is worse when... <span style="font-weight:400; color:#64748b !important;">(tick all that apply)</span>
-                        </p>""")
-                    worse_when_cb = gr.CheckboxGroup(
-                        choices=["Sitting", "Standing", "Walking / Activity",
-                                 "Morning stiffness", "Night pain", "Bending / Twisting", "At rest"],
-                        label="",
-                        value=[],
-                        show_label=False,
-                    )
-                    gr.HTML("</div>")
-
-                    # ── Occupation + Medical history ──
-                    gr.HTML("""<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;
-                                           padding:14px 18px; margin:8px 0 2px 0;">
-                        <p style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:#0f172a !important;">
-                            ④ Occupation &amp; Medical History
-                        </p>""")
-                    with gr.Row():
-                        occupation_radio = gr.Radio(
-                            choices=["Desk job / Sedentary", "Light physical",
-                                     "Manual labour", "Student", "Retired / Homemaker"],
-                            label="Occupation type",
-                            value=None,
-                        )
-                        comorbidities_cb = gr.CheckboxGroup(
-                            choices=["Diabetes", "Hypertension", "Osteoporosis",
-                                     "Previous surgery", "Obesity", "None"],
-                            label="Medical history (tick all that apply)",
-                            value=[],
-                        )
-                    gr.HTML("</div>")
-
-                    # ── Condition-specific questions ──
-                    with gr.Group(visible=False) as cond_specific_group:
-                        gr.HTML("""<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px;
-                                               padding:14px 18px; margin:8px 0 2px 0;">
-                            <p style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:#92400e !important;">
-                                ⑤ Condition-Specific Questions
-                            </p>""")
-                        with gr.Row():
-                            cond_q1 = gr.Radio(choices=[], label="", visible=False)
-                            cond_q2 = gr.Radio(choices=[], label="", visible=False)
-                        gr.HTML("</div>")
-
-                    # ── Optional imaging ──
-                    gr.HTML("""<div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px;
-                                           padding:14px 18px; margin:8px 0 2px 0;">
-                        <p style="margin:0 0 4px 0; font-size:13px; font-weight:700; color:#1e40af !important;">
-                            🩻 MRI / X-ray Report
-                            <span style="font-weight:400; color:#64748b !important;">&nbsp;(optional)</span>
-                        </p>
-                        <p style="margin:0 0 8px 0; font-size:12px; color:#475569 !important;">
-                            Paste your radiology report text. PhysioGemma will tailor recommendations to your findings.
-                        </p>""")
-                    imaging_report_box = gr.Textbox(
-                        label="",
-                        placeholder="Example: MRI Lumbar Spine — L4-L5 disc protrusion with mild lateral recess stenosis...",
-                        lines=3,
-                        show_label=False,
-                    )
-                    gr.HTML("</div>")
-
-                    gr.HTML("<div style='height:8px;'></div>")
-                    with gr.Row():
-                        intake_back_btn  = gr.Button("← Edit Complaint",   variant="secondary", size="sm", scale=1)
-                        intake_submit_btn = gr.Button("Get My Plan  →",    variant="primary",   size="lg", scale=3)
-
-                # ── STEP 3 : Output ──────────────────────────────────────
-                with gr.Group(visible=False) as step3_group:
-
-                    progress_display = gr.HTML(value=_progress_html({}))
-
-                    with gr.Row():
-                        with gr.Column(scale=1):
-                            profile_display = gr.Markdown(label="Clinical Assessment Summary")
-                        with gr.Column(scale=1):
-                            reasoning_display = gr.Markdown(label="Clinical Notes")
-
-                    exercises_display = gr.HTML(label="Exercise Prescription")
-
-                    with gr.Accordion("Agent Reasoning Chain", open=False):
-                        agent_chain_display = gr.HTML(label="Reasoning Chain")
-
-                    gr.HTML("<div style='height:8px;'></div>")
-                    with gr.Row():
-                        reset_btn = gr.Button("New Assessment", variant="primary", size="lg", scale=1)
+                with gr.Accordion("Agent Reasoning Chain", open=False):
+                    agent_chain_display = gr.HTML(label="Reasoning Chain")
 
             # ════════════════════════════════════════════════════════════
             # TAB 2: MY PROGRESS
@@ -1906,70 +1472,42 @@ def build_app():
             js=JS_LOAD_PROGRESS,
         )
 
-        # Step 1 → 2: detect condition & show form
-        detect_outputs = [
-            step1_group, step2_group, step3_group,
-            condition_badge_html, cond_specific_group,
-            cond_q1, cond_q2,
-        ]
-        detect_btn.click(
-            fn=detect_and_show_form,
-            inputs=[complaint_box],
-            outputs=detect_outputs,
-        )
-        complaint_box.submit(
-            fn=detect_and_show_form,
-            inputs=[complaint_box],
-            outputs=detect_outputs,
-        )
+        # Hidden textbox to hold message during two-phase chat
+        msg_holder = gr.Textbox(visible=False)
 
-        # Step 2 → 1: back button
-        intake_back_btn.click(
-            fn=lambda: (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)),
-            outputs=[step1_group, step2_group, step3_group],
-        )
+        # Consultation chat — two-phase: loading → process
+        loading_outputs = [chatbot, consultation_state, progress_state, msg_holder]
+        chat_outputs = [chatbot, consultation_state, progress_display, profile_display,
+                        exercises_display, reasoning_display, agent_chain_display,
+                        progress_state, progress_store]
 
-        # Pain slider live label
-        pain_intake_slider.change(
-            fn=pain_severity_html,
-            inputs=[pain_intake_slider],
-            outputs=[pain_severity_display],
-        )
-
-        # Step 2 → 3: submit intake form
-        intake_inputs = [
-            complaint_box, pain_intake_slider,
-            duration_radio, worse_when_cb,
-            age_radio, occupation_radio, comorbidities_cb,
-            cond_q1, cond_q2,
-            imaging_report_box,
-            consultation_state, progress_state,
-        ]
-        intake_outputs = [
-            step1_group, step2_group, step3_group,
-            progress_display, profile_display,
-            exercises_display, reasoning_display, agent_chain_display,
-            consultation_state, progress_state, progress_store,
-        ]
-        intake_submit_btn.click(
-            fn=process_intake_form,
-            inputs=intake_inputs,
-            outputs=intake_outputs,
+        send_btn.click(
+            fn=chat_loading,
+            inputs=[msg, chatbot, consultation_state, progress_state, imaging_report_box],
+            outputs=loading_outputs,
+        ).then(lambda: "", outputs=msg).then(
+            fn=chat,
+            inputs=[msg_holder, chatbot, consultation_state, progress_state, imaging_report_box],
+            outputs=chat_outputs,
         ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
-        # Reset — go back to Step 1
-        reset_outputs = [
-            consultation_state, progress_display, profile_display,
-            exercises_display, reasoning_display, agent_chain_display,
-            progress_state, progress_store, log_status, exercises_completed,
-            step1_group, step2_group, step3_group,
-            complaint_box, pain_intake_slider,
-            duration_radio, worse_when_cb,
-            age_radio, occupation_radio, comorbidities_cb,
-            cond_q1, cond_q2,
-            imaging_report_box,
-        ]
-        reset_btn.click(fn=reset, outputs=reset_outputs)
+        msg.submit(
+            fn=chat_loading,
+            inputs=[msg, chatbot, consultation_state, progress_state, imaging_report_box],
+            outputs=loading_outputs,
+        ).then(lambda: "", outputs=msg).then(
+            fn=chat,
+            inputs=[msg_holder, chatbot, consultation_state, progress_state, imaging_report_box],
+            outputs=chat_outputs,
+        ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
+
+        reset_btn.click(
+            fn=reset,
+            outputs=[chatbot, consultation_state, progress_display, profile_display,
+                     exercises_display, reasoning_display, agent_chain_display,
+                     progress_state, progress_store, log_status, exercises_completed,
+                     imaging_report_box],
+        )
 
         # Log session
         log_btn.click(
