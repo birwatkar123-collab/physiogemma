@@ -1,7 +1,7 @@
 # PhysioGemma: AI Physiotherapy Agent Powered by Gemma 4
 
 **Track: Health & Sciences**
-**Subtitle: A ReAct agent with tool-calling, RAG-enhanced clinical reasoning, structured reasoning, patient progress tracking, recovery graphs, and AI-powered recovery insights — autonomous clinical assessment, red flag detection, BMI-aware joint protection, and occupation-adapted exercise prescriptions powered by Gemma 4**
+**Subtitle: A ReAct agent with tool-calling, RAG-enhanced clinical reasoning, imaging report parsing, structured reasoning, patient progress tracking, recovery graphs, and AI-powered recovery insights — autonomous clinical assessment, red flag detection, BMI-aware joint protection, and occupation-adapted exercise prescriptions powered by Gemma 4**
 
 ---
 
@@ -15,7 +15,7 @@ Even when patients access physiotherapy, only 35% complete home exercise program
 
 PhysioGemma is an AI physiotherapy **agent** (not a chatbot) that autonomously conducts complete clinical consultations using a **ReAct architecture** — Gemma 4 reasons about what to do next, calls clinical tools, observes results, and decides the next step. A deterministic rule engine handles safety-critical decisions through tool interfaces, while Gemma 4 drives intelligent conversation, clinical reasoning, and patient education.
 
-Unlike simple symptom-checkers or linear chatbots, PhysioGemma operates as a **tool-calling agent** enhanced with **condition-specific RAG (Retrieval-Augmented Generation)** that follows real physiotherapy methodology — the **SITCAR pain evaluation framework** — gathering comprehensive clinical data through autonomous conversation, detecting red flags via tool calls, and generating personalized prescriptions across **8 musculoskeletal conditions** with **183 exercises** (all with YouTube video demonstrations).
+Unlike simple symptom-checkers or linear chatbots, PhysioGemma operates as a **tool-calling agent** enhanced with **condition-specific RAG (Retrieval-Augmented Generation)** and **optional imaging report parsing** that follows real physiotherapy methodology — the **SITCAR pain evaluation framework** — gathering comprehensive clinical data through autonomous conversation, detecting red flags via tool calls, and generating personalized prescriptions across **8 musculoskeletal conditions** with **183 exercises** (all with verified YouTube video demonstrations).
 
 > **PhysioGemma is the first AI physiotherapy agent where the LLM can never hallucinate an unsafe exercise — because every clinical decision passes through a deterministic evidence-based tool before reaching the patient.**
 
@@ -27,8 +27,11 @@ Unlike simple symptom-checkers or linear chatbots, PhysioGemma operates as a **t
 | **Clinical transparency** | Black box responses | Full reasoning chain: every tool call, every decision visible |
 | **Evidence grounding** | Generic LLM knowledge | RAG-injected evidence from Boonstra 2014, NICE NG59, Cochrane, ACSM, OARSI |
 | **Red flag detection** | Basic symptom matching | 40+ red flag patterns across 8 conditions in English AND Hindi |
+| **Imaging integration** | None | Paste MRI/X-ray report text → 45+ finding patterns extract findings, bias prescriptions, catch imaging red flags |
 | **Patient data privacy** | Server-stored data, logins required | Zero server storage — all progress data in browser localStorage |
-| **Clinical coverage** | 183 exercises across 8 conditions, 5 severity levels, with occupation, aggravation, and BMI modifiers | — |
+| **Clinical coverage** | — | 183 exercises across 8 conditions, 5 severity levels, with occupation, aggravation, and BMI modifiers |
+
+---
 
 ## Agent Architecture: Why It Matters
 
@@ -47,6 +50,8 @@ The agent follows the **Thought -> Action -> Observation** loop:
 
 This means the agent can handle a patient who provides everything in one message just as well as one who needs 4 rounds of questions.
 
+---
+
 ## 5 Agent Tools
 
 PhysioGemma uses **Gemma 4 function calling** to invoke 5 clinical tools:
@@ -60,6 +65,8 @@ PhysioGemma uses **Gemma 4 function calling** to invoke 5 clinical tools:
 | **analyze_progress** | Analyzes recovery trends, adherence, pain trajectories, and level readiness | When patient asks about their progress |
 
 Each tool wraps deterministic rule engine logic — **no hallucination risk** for clinical decisions. The agent decides **when** to call each tool based on what information it has gathered.
+
+---
 
 ## Lightweight RAG: Condition-Specific Knowledge Injection
 
@@ -106,7 +113,100 @@ With only 8 conditions and 12 knowledge entries, a simple keyword match achieves
 | Plantar Fasciitis | 1 | High-load heel raises > stretching alone, night splints (Rathleff 2015, APTA CPG) |
 | Tennis Elbow | 1 | Tyler twist, eccentric wrist extension gold standard, isometric analgesia (Coombes 2015) |
 
-This means when a patient presents with sciatica, Gemma 4 receives evidence about McKenzie extensions, centralization signs, and SLR diagnostics **before** it reasons about the case — producing significantly more accurate and clinically grounded responses.
+---
+
+## Imaging Report Integration (Mode 1)
+
+A key differentiator of PhysioGemma is its ability to accept and parse **written radiology reports** from MRI, X-ray, or CT scans — giving the prescription engine objective anatomical grounding that no other AI physio tool currently offers.
+
+### Why Text-Only (Mode 1)?
+
+We deliberately chose **not** to analyse raw scan images (Mode 2). Scan image interpretation requires specialized models trained on DICOM/grayscale medical imaging, and automated image diagnosis crosses into **Software as a Medical Device (SaMD)** territory — requiring FDA Class II / CE Mark MDR Class IIa regulatory approval and validated clinical studies. By parsing the radiologist's *written* report instead, we capture most of the clinical value with none of the medicolegal risk. This is a deliberate, informed architectural boundary — not a limitation.
+
+### How It Works
+
+`imaging_parser.py` is a **deterministic regex-based parser** (no LLM call — instant, zero cost, 100% reliable) that extracts structured clinical findings from report text:
+
+1. Patient optionally pastes their radiology report into the Consultation tab
+2. Parser scans for **45+ finding patterns** across spine, knee, shoulder, hip, cervical, foot, and elbow
+3. **Negation handling** correctly ignores "No compression fracture", "No nerve root impingement" etc.
+4. Structured findings are injected into Gemma's system prompt before assessment begins
+5. Findings, contraindications, and exercise bias appear in the Clinical Assessment Summary
+
+### Finding Patterns Covered
+
+| Region | Findings Detected |
+|--------|-------------------|
+| **Lumbar spine** | Disc herniation/protrusion/bulge, stenosis (central/lateral/foraminal), spondylolisthesis (with grade), facet arthropathy, annular tear, Modic changes, nerve root compression |
+| **Cervical spine** | Disc herniation, stenosis, myelopathy, spondylosis |
+| **Knee** | Meniscus tear (medial/lateral/bucket-handle), ACL/PCL/MCL tear, K-L graded OA, chondromalacia, Baker's cyst, effusion |
+| **Shoulder** | Full/partial rotator cuff tear, subacromial impingement, adhesive capsulitis, labral tear, AC joint OA, biceps tendon pathology |
+| **Hip** | FAI (cam/pincer), labral tear, OA, trochanteric bursitis |
+| **Foot** | Plantar fasciopathy, calcaneal spur, Achilles tendinopathy |
+| **Elbow** | Lateral/medial epicondylopathy |
+| **General** | Osteoporosis, AVN (imaging red flag), inflammatory arthritis |
+
+### Imaging Red Flags
+
+When serious findings are detected, the parser raises red flags that instruct Gemma to **defer exercise and refer** instead of prescribing:
+
+| Finding | Action |
+|---------|--------|
+| Cauda equina compression | SURGICAL EMERGENCY — defer, refer immediately |
+| Spinal cord compression / myelopathy | Defer — neurosurgical consultation required |
+| Vertebral compression fracture | Physician clearance required before loading |
+| Possible malignancy / lytic lesion | Defer — oncology/spine specialist referral |
+| Spinal infection (osteomyelitis/discitis) | Defer — immediate medical referral |
+| Full-thickness rotator cuff tear | Surgical consultation before loading program |
+| AVN / osteonecrosis | Orthopaedic management — defer loading |
+| Complete ACL tear | Surgical consultation before high-demand program |
+
+### Exercise Bias Logic
+
+Imaging findings vote on the appropriate exercise direction, resolving prescription conflicts:
+
+| Finding | Exercise Bias | Clinical Basis |
+|---------|--------------|----------------|
+| Disc herniation / nerve root compression | **Extension-biased** | McKenzie press-ups reduce disc pressure and centralize symptoms |
+| Spinal stenosis / facet arthropathy / spondylolisthesis | **Flexion-biased** | Flexion opens the spinal canal and reduces facet loading |
+| Most other findings | **Neutral** | Standard evidence-based protocol |
+
+The bias is injected into the system prompt so Gemma selects appropriately from the exercise library — a patient with both disc protrusion (extension vote) and stenosis (flexion vote) gets the dominant directional recommendation.
+
+### Integration Flow
+
+```
+Patient pastes report (optional)
+    |
+    v
+imaging_parser.parse_imaging_report(text)    ← deterministic regex, <1ms
+    |
+    |-- Extract: findings, severity, vertebral levels, OA grades
+    |-- Check: negation ("no compression fracture" → ignored)
+    |-- Detect: imaging red flags
+    |-- Vote: exercise bias (extension/flexion/neutral)
+    |-- Generate: contraindication list (plain English)
+    |
+    v
+state["collected"]["imaging"] = parsed_findings
+    |
+    v
+gemma_engine.py: format_imaging_for_prompt() → injected into system prompt
+    |
+    v
+Gemma sees: "[MODERATE] Disc herniation at L4-L5 | contraindications: avoid
+             forward bending | exercise bias: extension-biased | ..."
+    |
+    v
+Prescription respects imaging findings + contraindications
+    |
+    v
+Assessment Summary shows findings with severity icons (🔴 severe / 🟡 moderate / 🔵 mild)
+```
+
+If the imaging textbox is left empty, **nothing changes** — zero overhead, zero behavior difference for patients who don't have reports.
+
+---
 
 ## Structured Reasoning Chain
 
@@ -115,6 +215,9 @@ Every tool call and observation is logged and displayed transparently in the UI:
 ```
 Action: [Safety Check] patient_message="My back hurts for 3 months..."
 Observation: No red flags detected
+
+Action: [Imaging Analysis] report_length=312
+Observation: Detected: Disc herniation at L4-L5; Facet arthropathy — extension-biased
 
 Action: [Classify Occupation] occupation="software developer"
 Observation: Sedentary — Desk/office worker
@@ -128,11 +231,13 @@ Observation: Prescription: 9 exercises at Level 1
 
 This transparency lets patients (and clinicians reviewing output) understand exactly how decisions were made.
 
+---
+
 ## How the Agent Works: Clinical Flow
 
 ### Autonomous Assessment (No Fixed Stages)
 
-Unlike the previous chatbot version which forced patients through 4 fixed stages, the agent **decides its own flow**:
+Unlike a linear chatbot which forces patients through fixed stages, the agent **decides its own flow**:
 
 - If a patient says "I'm 45, lower back pain 6/10, desk worker, 3 months, getting worse, dull ache, sitting makes it worse" — the agent has enough to prescribe in 1-2 turns
 - If a patient says "my back hurts" — the agent conducts thorough SITCAR questioning over 3-4 turns
@@ -148,6 +253,8 @@ Unlike the previous chatbot version which forced patients through 4 fixed stages
 | **C** - Characteristic | Sharp / dull / burning / shooting / stiffness | Sharp/shooting = -1 level (neural caution) |
 | **A** - Aggravating | Specific activities, positions, times | Triggers aggravation-based exercise swaps |
 | **R** - Reducing | Rest, heat, ice, medication, positions | Informs home advice and exercise timing |
+
+---
 
 ## Red Flag Detection (Safety Tool)
 
@@ -167,6 +274,8 @@ When flags are detected, the agent **stops the exercise pathway** and advises im
 
 The red flag engine includes **40+ patterns** across all 8 conditions plus 6 general flags, with Hindi keyword support (`peshab`, `bukhar`, `gir gaya`, `sujan`, etc.) — critical for India where 80% of the population lacks access to physiotherapy.
 
+---
+
 ## Occupation-Based Exercise Modifications
 
 The `classify_occupation` tool categorizes work demands, then `get_exercise_prescription` adds tailored exercises:
@@ -177,6 +286,8 @@ The `classify_occupation` tool categorizes work demands, then `get_exercise_pres
 | **Light** | Teacher, retail, homemaker | Scapular squeezes, calf raises | Supportive footwear |
 | **Moderate** | Nursing, warehouse, delivery | McGill curl-up, farmer's walk | Proper body mechanics |
 | **Heavy** | Construction, farming, loading | Hip hinge drill, anti-rotation press | Warm up before shifts |
+
+---
 
 ## Aggravation-Based Exercise Swaps
 
@@ -190,6 +301,8 @@ When specific activities worsen pain, the prescription automatically adapts:
 | Standing | Supine core activation, lying exercises | Reduce weight-bearing |
 | Stairs | Graded step-up retraining | Retrain mechanics at lower load |
 
+---
+
 ## BMI-Aware Exercise Modifications
 
 Height and weight are collected naturally ("helps me choose exercises safe for your joints"). BMI is calculated silently — **never displayed to the patient** — and used as an exercise modifier:
@@ -200,6 +313,8 @@ Height and weight are collected naturally ("helps me choose exercises safe for y
 | 30.0-34.9 | Seated marching added, seated/lying priorities |
 | 35.0-39.9 | Wall push-ups, avoid floor-to-standing transitions |
 | 40.0+ | Ankle pumps, rest breaks, breathing monitoring |
+
+---
 
 ## Evidence-Based Prescription Logic
 
@@ -220,11 +335,14 @@ The `determine_exercise_level` tool stacks published clinical modifiers:
 - Age 50-64 with 2+ comorbidities: -1 level (ADA)
 - 3+ comorbidities: -1 additional level
 
-**Example:** 52-year-old desk worker (92kg, 170cm) with LBP, VAS 5/10, shooting pain worsening over 4 months, diabetes + hypertension, aggravated by sitting:
+**Example:** 52-year-old desk worker (92kg, 170cm) with LBP, VAS 5/10, shooting pain worsening over 4 months, diabetes + hypertension, aggravated by sitting. MRI report: L4-L5 disc protrusion, no stenosis.
+- Imaging parser: extension-biased, avoid heavy lifting
 - Tool: `determine_exercise_level(5.0, 52, true, 2, "worsening", "shooting", false)` → Level 1
 - Tool: `classify_occupation("desk worker")` → Sedentary
 - Tool: `get_exercise_prescription("LBP", 1, "sedentary", ["sitting"], 170, 92)` → 9 exercises + modifiers
-- Result: Level 1 + McKenzie press-up + seated marching + diabetes monitoring + sitting management
+- Result: Level 1 + extension-biased McKenzie exercises + seated marching + diabetes monitoring + sitting management
+
+---
 
 ## 8 Conditions Covered
 
@@ -239,7 +357,9 @@ The `determine_exercise_level` tool stacks published clinical modifiers:
 | Plantar Fasciitis | 20+ across 5 levels | Eccentric loading evidence |
 | Tennis Elbow | 20+ across 5 levels | Tyler Twist, eccentric evidence |
 
-Total: **183 exercises** — 160 core exercises across 8 conditions × 5 levels, plus 23 supplementary exercises from occupation, aggravation, and BMI modifiers — **every single exercise has a YouTube video demonstration** with clickable thumbnail cards.
+Total: **183 exercises** — 160 core exercises across 8 conditions × 5 levels, plus 23 supplementary exercises from occupation, aggravation, and BMI modifiers — **every single exercise has a YouTube video demonstration** with clickable thumbnail cards. All **120 unique video IDs are verified working** — scanned programmatically and dead links replaced.
+
+---
 
 ## Patient Progress Tracking (Memory System)
 
@@ -281,6 +401,8 @@ Auto-detected achievements that encourage adherence:
 | 50% Pain Reduction | Last 3 avg ≤ 50% of first 3 avg | Meaningful recovery |
 | Perfect Streak | 3 consecutive 100% adherence | Exercise commitment |
 
+---
+
 ## Recovery Graph
 
 A **dual-axis matplotlib chart** visualizes the patient's recovery journey:
@@ -295,7 +417,7 @@ A **dual-axis matplotlib chart** visualizes the patient's recovery journey:
 - Bar chart per session, color-coded: green (≥80%), yellow (50-80%), red (<50%)
 - 80% target line (evidence-based adherence threshold)
 
-The graph regenerates on every session log, giving patients a visual record of their progress.
+---
 
 ## AI-Powered Recovery Insights
 
@@ -314,8 +436,6 @@ The `analyze_progress` tool combines **rule-based analysis** with **Gemma 4 narr
 
 ### Recommendation Engine
 
-Based on analysis, one of four recommendations is generated:
-
 | Recommendation | Criteria | Display |
 |---------------|----------|---------|
 | **Progress** | Ready-to-progress insight detected | Green: "Ready to Progress to Next Level!" |
@@ -325,13 +445,9 @@ Based on analysis, one of four recommendations is generated:
 
 ### AI Narrative (Gemma 4)
 
-After rule-based analysis, Gemma 4 generates a **warm, personalized recovery report** (4-6 sentences) that:
-- References specific numbers (pain change %, adherence, streak length)
-- Encourages the patient based on their actual trajectory
-- Addresses concerns gently if pain is worsening
-- Ends with one actionable tip for their next session
+After rule-based analysis, Gemma 4 generates a **warm, personalized recovery report** (4-6 sentences) that references specific numbers, encourages based on actual trajectory, addresses concerns gently if pain is worsening, and ends with one actionable tip.
 
-This is a separate, focused Gemma call — not part of the ReAct agent loop — for speed and reliability.
+---
 
 ## How Gemma 4 Is Used
 
@@ -339,29 +455,39 @@ This is a separate, focused Gemma call — not part of the ReAct agent loop — 
 
 Gemma 4 26B-A4B-IT is the **brain of the agent**, powering:
 
-**1. Autonomous Decision-Making** — Decides what information to gather, when to call tools, and how to adapt the conversation flow. No fixed scripts or hard-coded stages.
+**1. Autonomous Decision-Making** — Decides what information to gather, when to call tools, and how to adapt the conversation flow.
 
-**2. Function Calling** — Invokes clinical tools through Google AI Studio's function calling API. The agent sees tool schemas, decides which to call, passes structured arguments, and processes results.
+**2. Function Calling** — Invokes clinical tools through Google AI Studio's function calling API with structured arguments.
 
-**3. RAG-Enhanced Reasoning** — Once a condition is identified, the system prompt is dynamically augmented with condition-specific clinical evidence from the knowledge base. This grounds Gemma's reasoning in published guidelines (Cochrane, NICE, ACSM, OARSI) without adding any latency or external dependencies.
+**3. RAG-Enhanced Reasoning** — System prompt dynamically augmented with condition-specific clinical evidence from the knowledge base, grounding reasoning in Cochrane, NICE, ACSM, OARSI guidelines.
 
-**4. Conversational Assessment** — Empathetic, condition-aware clinical interviews. Adapts language (English/Hindi), acknowledges pain, uses analogies, weaves condition-specific screening into natural conversation.
+**4. Imaging-Aware Reasoning** — When a radiology report is provided, imaging findings (with contraindications and exercise bias) are injected alongside RAG knowledge. Gemma references these findings explicitly in its clinical explanation.
 
-**5. Clinical Reasoning** — After tools generate the prescription, Gemma 4 produces a comprehensive clinical report: personal summary, exercise reasoning, daily schedule, progression pathway, occupation guidance, safety precautions, and realistic timeline.
+**5. Conversational Assessment** — Empathetic, condition-aware clinical interviews. Adapts language (English/Hindi), acknowledges pain, uses condition-specific screening in natural conversation.
 
-**6. Follow-Up Intelligence** — Handles technique questions, pain guidance (traffic-light VAS system), progression queries, and lifestyle modifications — all personalized to the patient's complete profile.
+**6. Clinical Reasoning** — After tools generate the prescription, Gemma 4 produces a comprehensive clinical report: personal summary, exercise reasoning, daily schedule, progression pathway, occupation guidance, safety precautions, and realistic timeline.
 
-**7. Recovery Insights Narration** — Analyzes rule-based progress data and generates warm, encouraging recovery reports with specific numbers, actionable tips, and level progression recommendations.
+**7. Recovery Insights Narration** — Analyzes rule-based progress data and generates warm, encouraging recovery reports with specific numbers and actionable tips.
+
+---
 
 ## Architecture Diagram
 
 ```
 Patient (English/Hindi)
     |
+    |-- [Optional] Paste MRI/X-ray report text
+    |       |
+    |       v
+    |   imaging_parser.py (deterministic, <1ms)
+    |   → findings, contraindications, exercise bias, imaging red flags
+    |   → stored in state["collected"]["imaging"]
+    |
     v
 [Gemma 4 Agent] — Receives message + tool definitions
     |
     |-- [RAG] Condition known? → Inject clinical knowledge into system prompt
+    |-- [Imaging] Report provided? → Inject findings + contraindications + bias
     |-- Thinks: "Check safety first"
     |-- Action: check_red_flags(message, condition)
     |-- Observation: {flags_found: false}
@@ -372,23 +498,20 @@ Patient (English/Hindi)
 [Patient responds]
     |
     v
-[Gemma 4 Agent] — Updated conversation context + RAG knowledge
+[Gemma 4 Agent] — Updated conversation context + RAG + imaging knowledge
     |
-    |-- [RAG] Condition="LBP" → Inject: McGill Big 3, graded activity, cauda equina...
-    |-- Action: check_red_flags(message)
     |-- Action: classify_occupation(job_description)
     |-- Observation: {category: "sedentary"}
-    |
-    |-- Thinks: "Have enough data — generate prescription"
     |-- Action: determine_exercise_level(vas, age, chronic, ...)
     |-- Observation: {level: 2, reasoning: "..."}
     |-- Action: get_exercise_prescription(condition, level, ...)
     |-- Observation: {exercises: [...], modifiers: [...]}
     |
-    |-- Generates: RAG-grounded clinical reasoning + personalized report
+    |-- Generates: imaging-aware clinical reasoning + personalized report
     |
     v
 Personalized Prescription with Exercise Videos + Reasoning Chain
+    + Clinical Assessment Summary (with imaging findings if provided)
     |
     v
 [Patient exercises at home]
@@ -411,7 +534,9 @@ Personalized Prescription with Exercise Videos + Reasoning Chain
 Recovery Report + Level Progression Recommendation
 ```
 
-**Tech Stack:** Gemma 4 26B-A4B-IT (Google AI Studio free tier), Function Calling API, Lightweight RAG (condition-based knowledge retrieval), Gradio (tabbed UI), matplotlib (recovery charts), localStorage (progress persistence), HuggingFace Spaces, Python
+**Tech Stack:** Gemma 4 26B-A4B-IT (Google AI Studio free tier), Function Calling API, Lightweight RAG (condition-based knowledge retrieval), Deterministic Imaging Parser (45+ regex patterns, negation handling), Gradio (tabbed UI), matplotlib (recovery charts), localStorage (progress persistence), HuggingFace Spaces, Python
+
+---
 
 ## Agent vs Chatbot: What Changed
 
@@ -420,13 +545,15 @@ Recovery Report + Level Progression Recommendation
 | Flow control | 4 fixed stages, Python if/elif chain | Agent decides autonomously |
 | Tool usage | None — all inline Python | 5 tools via Gemma function calling |
 | Clinical grounding | Generic LLM knowledge only | RAG-injected evidence (Cochrane, NICE, ACSM) |
+| Imaging integration | None | Radiology report text parsed, findings injected into prescription |
 | Reasoning | Hidden in code logic | Transparent reasoning chain displayed |
 | Flexibility | Same 4 questions regardless of input | Adapts: rich input = fewer turns |
-| Exercise videos | Partial coverage, some broken links | 183 exercises, 100% video coverage |
+| Exercise videos | Partial coverage, some broken links | 183 exercises, 120/120 video IDs verified working |
 | Progress tracking | None — one-shot prescription | Session logging, recovery graph, AI insights |
 | Patient retention | Single visit, no follow-up | Milestones, streaks, level progression |
-| Error handling | Fixed stage progression | Fallback mode for non-tool models |
 | Transparency | Black box | Every decision logged and visible |
+
+---
 
 ## Real-World Impact
 
@@ -436,15 +563,23 @@ Recovery Report + Level Progression Recommendation
 - Bilingual (English + Hindi) for 1.4 billion people
 - Free, no login required — accessible to anyone with internet
 - Progress tracking with recovery graphs increases exercise adherence (evidence: 35% → 60%+ with visual feedback)
-- Agent architecture enables future extensions (imaging analysis, wearable integration)
+- Imaging report parsing bridges the gap between radiology and physiotherapy — patients often have MRI reports but no one to interpret them for exercise planning
 - **Resilient fallback:** If Gemma 4 function calling is unavailable, PhysioGemma falls back to a structured prompt mode that still generates valid prescriptions through the deterministic rule engine
 - **80% adherence target** on the recovery graph is evidence-based (rehabilitation research threshold for meaningful clinical improvement)
 
+---
+
 ## Limitations & Ethics
 
-PhysioGemma covers 8 common musculoskeletal conditions. It does not handle post-surgical rehabilitation, neurological conditions, pediatric cases, or complex multi-joint presentations. Red flag detection uses keyword matching and may miss atypical presentations. The RAG knowledge base contains 12 curated entries — future expansion could include rare conditions and comorbidity-specific guidance. Function calling depends on model support — a fallback mode exists for compatibility. Progress data is stored in browser localStorage — it does not sync across devices (a download/upload option is planned).
+PhysioGemma covers 8 common musculoskeletal conditions. It does not handle post-surgical rehabilitation, neurological conditions, pediatric cases, or complex multi-joint presentations. Red flag detection uses keyword matching and may miss atypical presentations.
 
-All outputs include a clinical disclaimer. PhysioGemma is designed to **supplement, not replace** professional physiotherapy care. The agent architecture ensures safety-critical decisions are **always deterministic** (handled by rule engine tools), while communication and reasoning are **always intelligent** (handled by Gemma 4).
+The imaging parser analyses **text reports only** — scan images (DICOM, JPEG) are intentionally excluded. Autonomous interpretation of raw scan plates would constitute a Software as a Medical Device (SaMD) requiring regulatory approval. This boundary is a deliberate clinical and ethical choice, not a technical limitation.
+
+The RAG knowledge base contains 12 curated entries — future expansion could include rare conditions and comorbidity-specific guidance. Progress data is stored in browser localStorage — it does not sync across devices.
+
+All outputs include a clinical disclaimer. PhysioGemma is designed to **supplement, not replace** professional physiotherapy care. Safety-critical decisions are **always deterministic** (rule engine tools), while communication and reasoning are **always intelligent** (Gemma 4).
+
+---
 
 ## Links
 
