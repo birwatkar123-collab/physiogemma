@@ -1465,7 +1465,7 @@ def process_intake_form(
         f"Generate the complete personalized exercise prescription."
     )
 
-    result, state = process_message(message, [], state)
+    result, state = process_message(message, [{"role": "user", "content": message}], state)
 
     rc    = result.get("reasoning_chain", []) if isinstance(result, dict) else []
     state.setdefault("all_reasoning", [])
