@@ -439,14 +439,14 @@ button.secondary:hover {
     backdrop-filter: blur(8px);
 }
 .badge-agent {
-    background: rgba(147,197,253,0.2);
-    color: #93c5fd !important;
-    border: 1px solid rgba(147,197,253,0.4);
+    background: rgba(134,239,172,0.18);
+    color: #86efac !important;
+    border: 1px solid rgba(134,239,172,0.38);
 }
 .badge-rag {
-    background: rgba(16,185,129,0.15);
+    background: rgba(52,211,153,0.15);
     color: #6ee7b7 !important;
-    border: 1px solid rgba(16,185,129,0.3);
+    border: 1px solid rgba(52,211,153,0.32);
 }
 .badge-clinical {
     background: rgba(251,191,36,0.15);
@@ -458,14 +458,14 @@ button.secondary:hover {
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.07);
     border-radius: 24px;
     font-size: 12px;
     font-weight: 600;
-    color: #cbd5e1 !important;
+    color: #bbf7d0 !important;
     margin: 3px;
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(134,239,172,0.2);
 }
 
 /* ── Section dividers ────────────────────────────────────────────────────── */
@@ -1176,30 +1176,31 @@ def build_app():
 
         # ── Hero Section ──
         gr.HTML("""
-        <div style="text-align:center; padding:36px 28px 32px 28px;
-                    background:linear-gradient(135deg, #0f172a 0%, #1e3a5f 40%, #1e40af 100%);
+        <div style="text-align:center; padding:40px 28px 34px 28px;
+                    background:linear-gradient(135deg, #0d2818 0%, #1a3c2a 45%, #1e5c3a 100%);
                     border-radius:20px; margin-bottom:20px;
-                    box-shadow:0 8px 32px rgba(15,23,42,0.3);
+                    box-shadow:0 8px 36px rgba(13,40,24,0.45);
                     position:relative; overflow:hidden;">
 
             <!-- Subtle background pattern -->
             <div style="position:absolute; top:0; left:0; right:0; bottom:0;
-                        background:radial-gradient(circle at 20% 80%, rgba(37,99,235,0.15) 0%, transparent 50%),
-                                   radial-gradient(circle at 80% 20%, rgba(16,185,129,0.1) 0%, transparent 50%);
+                        background:radial-gradient(circle at 15% 85%, rgba(52,211,153,0.12) 0%, transparent 52%),
+                                   radial-gradient(circle at 85% 15%, rgba(16,185,129,0.10) 0%, transparent 52%),
+                                   radial-gradient(circle at 50% 50%, rgba(134,239,172,0.04) 0%, transparent 70%);
                         pointer-events:none;"></div>
 
             <div style="position:relative; z-index:1;">
-                <p style="font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase;
-                          color:#93c5fd !important; margin:0 0 12px 0;">
+                <p style="font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase;
+                          color:#86efac !important; margin:0 0 12px 0;">
                     AI-Powered Recovery Tracking
                 </p>
                 <h1 style="font-size:2.8em; margin:0; color:#ffffff !important;
                             font-weight:800; letter-spacing:-0.03em;">
                     &#129658; PhysioGemma
                 </h1>
-                <p style="font-size:1.1em; color:#94a3b8 !important; margin:8px 0 20px 0; font-weight:400;">
+                <p style="font-size:1.1em; color:#a7f3d0 !important; margin:8px 0 20px 0; font-weight:400;">
                     AI Physiotherapy <strong style="color:#ffffff !important;">Agent</strong>
-                    powered by <strong style="color:#60a5fa !important;">Gemma 4</strong>
+                    powered by <strong style="color:#4ade80 !important;">Gemma 4</strong>
                 </p>
 
                 <div style="margin:14px 0;">
@@ -1215,7 +1216,7 @@ def build_app():
                     <span class="trust-item">&#127909; 183 Exercise Videos</span>
                 </div>
 
-                <p style="font-size:11px; color:#64748b !important; margin:16px 0 0 0; font-style:italic;">
+                <p style="font-size:11px; color:#6ee7b7 !important; margin:16px 0 0 0; font-style:italic;">
                     Built with clinical reasoning + AI &bull; Not medical advice
                 </p>
             </div>
