@@ -681,10 +681,27 @@ def _format_prescription_html(result: dict) -> str:
             yt_url = f"https://www.youtube.com/watch?v={video_id}"
             thumb_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
             fallback_thumb = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+            # Hugging Face Spaces may render the app inside an iframe, so we
+            # try top-level navigation first and fall back to same-frame nav.
+            nav_js = (
+                "event.preventDefault();"
+                f"const url='{yt_url}';"
+                "try {"
+                "  if (window.top && window.top !== window) {"
+                "    window.top.location.href = url;"
+                "  } else {"
+                "    window.location.href = url;"
+                "  }"
+                "} catch (e) {"
+                "  window.location.href = url;"
+                "}"
+                "return false;"
+            )
             video_embed = (
-                f'<a href="{yt_url}" target="_top" '
+                f'<a href="{yt_url}" target="_top" rel="noopener noreferrer" '
+                f'onclick="{nav_js}" '
                 f'style="display:block; position:relative; margin-top:14px; '
-                f'border-radius:14px; overflow:hidden; max-width:100%;">'
+                f'border-radius:14px; overflow:hidden; max-width:100%; cursor:pointer;">'
                 f'<img src="{thumb_url}" '
                 f'onerror="this.onerror=null;this.src=\'{fallback_thumb}\';" '
                 f'style="width:100%; border-radius:14px; display:block;" '
@@ -694,6 +711,15 @@ def _format_prescription_html(result: dict) -> str:
                 f'color:#fff; text-shadow:0 2px 16px rgba(0,0,0,0.5); '
                 f'pointer-events:none;">&#9654;</span>'
                 f'</a>'
+                f'<div style="margin-top:10px;">'
+                f'<a href="{yt_url}" target="_top" rel="noopener noreferrer" '
+                f'onclick="{nav_js}" '
+                f'style="display:inline-flex; align-items:center; gap:8px; '
+                f'padding:10px 14px; border-radius:10px; font-weight:700; '
+                f'background:#dc2626; color:#ffffff !important; text-decoration:none;">'
+                f'Open video on YouTube'
+                f'</a>'
+                f'</div>'
             )
         icon = type_icons.get(ex.get("type", ""), "&#127947;")
         ex_type = ex.get("type", "general").title()
