@@ -678,29 +678,17 @@ def _format_prescription_html(result: dict) -> str:
         video_id = ex.get("video") or ex.get("video_id") or ""
         video_embed = ""
         if video_id:
-            yt_url = f"https://www.youtube.com/watch?v={video_id}"
-            thumb_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
-            fallback_thumb = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+            embed_url = f"https://www.youtube.com/embed/{video_id}?rel=0"
             video_embed = (
-                f'<a href="{yt_url}" target="_blank" rel="noopener noreferrer" '
-                f'style="display:block; position:relative; margin-top:14px; '
-                f'border-radius:14px; overflow:hidden; max-width:100%; cursor:pointer;">'
-                f'<img src="{thumb_url}" '
-                f'onerror="this.onerror=null;this.src=\'{fallback_thumb}\';" '
-                f'style="width:100%; border-radius:14px; display:block;" '
-                f'alt="Watch exercise video" />'
-                f'<span style="position:absolute; top:50%; left:50%; '
-                f'transform:translate(-50%,-50%); font-size:56px; '
-                f'color:#fff; text-shadow:0 2px 16px rgba(0,0,0,0.5); '
-                f'pointer-events:none;">&#9654;</span>'
-                f'</a>'
-                f'<div style="margin-top:10px;">'
-                f'<a href="{yt_url}" target="_blank" rel="noopener noreferrer" '
-                f'style="display:inline-flex; align-items:center; gap:8px; '
-                f'padding:10px 14px; border-radius:10px; font-weight:700; '
-                f'background:#dc2626; color:#ffffff !important; text-decoration:none;">'
-                f'Open video on YouTube'
-                f'</a>'
+                f'<div style="margin-top:14px; border-radius:14px; overflow:hidden; '
+                f'background:#0f172a;">'
+                f'<iframe src="{embed_url}" '
+                f'title="Exercise video" '
+                f'style="width:100%; aspect-ratio:16/9; border:0; display:block;" '
+                f'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+                f'gyroscope; picture-in-picture; web-share" '
+                f'referrerpolicy="strict-origin-when-cross-origin" '
+                f'allowfullscreen></iframe>'
                 f'</div>'
             )
         icon = type_icons.get(ex.get("type", ""), "&#127947;")
