@@ -23,325 +23,295 @@ from progress import (
 
 # ── Theme ────────────────────────────────────────────────────────────────────
 
-THEME = gr.themes.Soft(
-    primary_hue="blue",
-    secondary_hue="emerald",
-    neutral_hue="slate",
-    font=gr.themes.GoogleFont("Inter"),
+THEME = gr.themes.Base(
+    primary_hue="red",
+    neutral_hue="stone",
+    font=gr.themes.GoogleFont("Archivo"),
 )
 
 CSS = """
 /* ══════════════════════════════════════════════════════════════════════════
-   PhysioGemma — Premium Healthcare Dashboard
-   Design System: #F8FAFC bg · #2563EB primary · #10B981 accent · Inter font
+   PhysioGemma — Modernist design system
+   #f3f2f2 page · #eae9e9 surface · #201e1d ink · #ec3013 accent · Archivo
+   0px radius · 2px rules · flat, flush-left
    ══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
 
 /* ── Reset & Global ──────────────────────────────────────────────────────── */
 .gradio-container {
-    max-width: 1100px !important;
-    background: #F8FAFC !important;
+    max-width: 1200px !important;
+    background: #f3f2f2 !important;
+    font-family: 'Archivo', system-ui, sans-serif !important;
 }
-* { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+* { border-radius: 0 !important; }
+*:focus-visible { outline: 2px solid #ec3013 !important; outline-offset: 2px; }
+::selection { background: rgba(236,48,19,0.3); }
 
-/* ── Force readable dark text everywhere ─────────────────────────────────── */
+/* ── Force ink text everywhere ───────────────────────────────────────────── */
 body, .gradio-container, .gradio-container *,
 .prose *, .markdown-text *, span, p, li, td, th,
 label, h1, h2, h3, h4, h5, h6 {
-    color: #1e293b !important;
+    color: #201e1d !important;
+    font-family: 'Archivo', system-ui, sans-serif !important;
 }
-.dark body, .dark .gradio-container * { color: #1e293b !important; }
+.dark body, .dark .gradio-container * { color: #201e1d !important; }
+code, pre, .reasoning-observation, .mono {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace !important;
+}
 
 /* ── Typography ──────────────────────────────────────────────────────────── */
-h1 { font-weight: 800 !important; letter-spacing: -0.03em !important; }
-h2, h3 { font-weight: 700 !important; color: #0f172a !important; }
-h4, h5 { font-weight: 600 !important; color: #1e293b !important; }
-label { color: #475569 !important; font-weight: 600 !important; font-size: 13px !important; }
-
-/* ── Card base ───────────────────────────────────────────────────────────── */
-.card-base {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-}
-.card-base:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.04);
-    transform: translateY(-2px);
-}
+h1 { font-weight: 800 !important; letter-spacing: -0.015em !important; line-height: 1.12 !important; }
+h2, h3 { font-weight: 800 !important; letter-spacing: -0.015em !important; }
+h4, h5 { font-weight: 800 !important; }
+label { color: rgba(32,30,29,0.7) !important; font-weight: 800 !important; font-size: 12px !important;
+        text-transform: uppercase !important; letter-spacing: 0.08em !important; }
 
 /* ── Chat bubbles ────────────────────────────────────────────────────────── */
 .message-wrap .message {
-    border-radius: 18px !important;
-    padding: 14px 20px !important;
+    border-radius: 0 !important;
+    padding: 14px 18px !important;
     font-size: 15px !important;
-    line-height: 1.7 !important;
+    line-height: 1.55 !important;
     max-width: 85% !important;
+    box-shadow: none !important;
 }
 .message-wrap .bot,
 .chatbot .message-wrap .bot {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
-    border-radius: 18px 18px 18px 4px !important;
+    background: #eae9e9 !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 .message-wrap .bot *, .message-wrap .bot p,
 .message-wrap .bot span, .message-wrap .bot li,
-.message-wrap .bot strong, .message-wrap .bot code,
+.message-wrap .bot strong,
 .chatbot .message-wrap .bot *,
 .chatbot .message-wrap .bot p,
 .chatbot .message-wrap .bot span {
-    color: #1e293b !important;
+    color: #201e1d !important;
 }
 .message-wrap .bot code {
-    background: #f1f5f9 !important;
-    color: #2563EB !important;
-    padding: 2px 6px !important;
-    border-radius: 6px !important;
-    font-size: 13px !important;
+    background: #ffe0d9 !important;
+    color: #7c1405 !important;
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 .message-wrap .user,
 .chatbot .message-wrap .user {
-    background: linear-gradient(135deg, #2563EB 0%, #1d4ed8 100%) !important;
-    color: #ffffff !important;
-    border-radius: 18px 18px 4px 18px !important;
-    box-shadow: 0 4px 14px rgba(37,99,235,0.35) !important;
+    background: transparent !important;
+    border: 2px solid #201e1d !important;
+    box-shadow: none !important;
 }
 .message-wrap .user *, .message-wrap .user p,
 .message-wrap .user span, .message-wrap .user li,
 .chatbot .message-wrap .user *,
 .chatbot .message-wrap .user p,
 .chatbot .message-wrap .user span {
-    color: #ffffff !important;
+    color: #201e1d !important;
 }
+.chatbot { border: 2px solid rgba(32,30,29,0.4) !important; background: #f3f2f2 !important; box-shadow: none !important; }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 button.primary {
-    background: linear-gradient(135deg, #2563EB 0%, #1d4ed8 100%) !important;
+    background: #ec3013 !important;
     border: none !important;
-    border-radius: 14px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.01em !important;
-    box-shadow: 0 4px 14px rgba(37,99,235,0.3) !important;
-    padding: 10px 24px !important;
+    font-weight: 800 !important;
+    font-size: 14px !important;
+    color: #f3f2f2 !important;
+    box-shadow: none !important;
+    padding: 12px 20px !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
 }
-button.primary:hover {
-    box-shadow: 0 6px 20px rgba(37,99,235,0.45) !important;
-    transform: translateY(-1px) scale(1.01);
-}
-button.primary:active {
-    transform: translateY(0px) scale(0.99);
-    box-shadow: 0 2px 8px rgba(37,99,235,0.3) !important;
-}
+button.primary * { color: #f3f2f2 !important; }
+button.primary:hover { background: #dd2b0f !important; transform: none; box-shadow: none !important; }
+button.primary:active { background: #ae1800 !important; transform: none; }
 button.secondary {
-    border-radius: 14px !important;
-    border: 1.5px solid #e2e8f0 !important;
-    background: #ffffff !important;
+    border: 2px solid rgba(32,30,29,0.4) !important;
+    background: transparent !important;
     font-weight: 600 !important;
-    color: #475569 !important;
+    color: #201e1d !important;
+    box-shadow: none !important;
 }
 button.secondary:hover {
-    background: #f8fafc !important;
-    border-color: #2563EB !important;
-    color: #2563EB !important;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.1) !important;
+    background: rgba(32,30,29,0.07) !important;
+    border-color: #201e1d !important;
+    color: #201e1d !important;
+    box-shadow: none !important;
 }
 
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 .tabs > .tab-nav {
-    background: #ffffff !important;
-    border-radius: 14px 14px 0 0 !important;
-    border-bottom: 2px solid #e2e8f0 !important;
-    padding: 4px 4px 0 4px !important;
+    background: transparent !important;
+    border-bottom: 2px solid rgba(32,30,29,0.4) !important;
+    padding: 0 !important;
 }
 .tabs > .tab-nav > button {
     font-size: 14px !important;
     font-weight: 600 !important;
-    padding: 12px 24px !important;
-    border-radius: 10px 10px 0 0 !important;
-    color: #64748b !important;
+    padding: 12px 20px !important;
+    color: #201e1d !important;
     border: none !important;
+    background: transparent !important;
 }
 .tabs > .tab-nav > button.selected {
-    background: #f0f7ff !important;
-    border-bottom: 3px solid #2563EB !important;
-    color: #2563EB !important;
-    font-weight: 700 !important;
-}
-.tabs > .tab-nav > button:hover:not(.selected) {
-    background: #f8fafc !important;
-    color: #334155 !important;
-}
-
-/* ── Progress pills (consultation tracker) ───────────────────────────────── */
-.progress-bar {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin: 16px 0 28px 0;
-    flex-wrap: wrap;
-}
-.progress-pill {
-    padding: 7px 18px;
-    border-radius: 24px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-}
-.progress-done {
-    background: linear-gradient(135deg, #10B981, #059669);
-    color: #ffffff !important;
-    box-shadow: 0 3px 10px rgba(16,185,129,0.35);
-}
-.progress-done * { color: #ffffff !important; }
-.progress-pending {
-    background: #f1f5f9;
-    color: #64748b !important;
-    border: 1.5px solid #e2e8f0;
-}
-.progress-pending * { color: #64748b !important; }
-
-/* ── Stat cards ──────────────────────────────────────────────────────────── */
-.stat-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 24px 16px 20px 16px;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
-    position: relative;
-    overflow: hidden;
-}
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #2563EB, #10B981);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-.stat-card:hover {
-    box-shadow: 0 8px 28px rgba(0,0,0,0.08);
-    transform: translateY(-3px);
-    border-color: #bfdbfe;
-}
-.stat-card:hover::before { opacity: 1; }
-.stat-icon-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px; height: 48px;
-    border-radius: 14px;
-    font-size: 22px;
-    margin-bottom: 8px;
-}
-.stat-card h3 {
-    color: #0f172a !important;
-    margin: 6px 0 2px 0 !important;
-    font-size: 28px !important;
+    background: transparent !important;
+    border-bottom: 3px solid #ec3013 !important;
+    color: #ec3013 !important;
     font-weight: 800 !important;
 }
-.stat-card p {
-    color: #64748b !important;
-    margin: 0 !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
+.tabs > .tab-nav > button:hover:not(.selected) {
+    background: rgba(32,30,29,0.05) !important;
+    color: #201e1d !important;
+}
+
+/* ── Assessment chips (progress pills) ───────────────────────────────────── */
+.progress-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 12px 0 20px 0;
+    flex-wrap: wrap;
+    border-bottom: 2px solid rgba(32,30,29,0.4);
+    padding-bottom: 14px;
+}
+.progress-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 800;
+    margin-right: 8px;
+    color: #201e1d !important;
+}
+.progress-pill {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+.progress-done {
+    background: #201e1d;
+    color: #f3f2f2 !important;
+    font-weight: 600;
+    box-shadow: none;
+}
+.progress-done * { color: #f3f2f2 !important; }
+.progress-pending {
+    background: transparent;
+    color: rgba(32,30,29,0.7) !important;
+    border: 2px solid rgba(32,30,29,0.4);
+}
+.progress-pending * { color: rgba(32,30,29,0.7) !important; }
+
+/* ── Stat strip ──────────────────────────────────────────────────────────── */
+.stat-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    border-bottom: 2px solid rgba(32,30,29,0.4);
+    border-top: 2px solid rgba(32,30,29,0.4);
+    margin: 16px 0;
+}
+.stat-cell { padding: 20px 24px; border-right: 1px solid rgba(32,30,29,0.15); }
+.stat-cell:last-child { border-right: none; }
+.stat-num { font-weight: 800; font-size: 34px; line-height: 1; color: #201e1d !important; }
+.stat-num .unit { font-size: 16px; }
+.stat-num.accent { color: #ae1800 !important; }
+.stat-num.accent * { color: #ae1800 !important; }
+.stat-label {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(32,30,29,0.6) !important; margin-top: 6px;
 }
 
 /* ── Exercise cards ──────────────────────────────────────────────────────── */
 .exercise-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 22px;
+    background: #eae9e9;
+    border: none;
+    padding: 0;
     margin: 14px 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+    box-shadow: none;
 }
-.exercise-card:hover {
-    box-shadow: 0 8px 28px rgba(37,99,235,0.1);
-    transform: translateY(-2px);
-    border-color: #93c5fd;
-}
+.exercise-card:hover { box-shadow: none; transform: none; }
 .exercise-card h4 {
-    color: #0f172a !important;
-    margin: 0 0 10px 0;
-    font-size: 17px;
-    font-weight: 700;
+    color: #201e1d !important;
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 800;
+    padding: 14px 16px 0 16px;
 }
 .exercise-card p {
-    color: #475569 !important;
+    color: rgba(32,30,29,0.8) !important;
     margin: 6px 0;
     font-size: 14px;
-    line-height: 1.65;
+    line-height: 1.55;
+    padding: 0 16px;
 }
 .exercise-card .ex-meta {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-    margin: 10px 0 12px 0;
+    margin: 6px 0 8px 0;
+    padding: 0 16px;
 }
 .exercise-card .ex-badge {
     display: inline-block;
-    padding: 5px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
+    padding: 3px 10px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    font-weight: 400;
 }
-.ex-badge-sets { background: #eff6ff; color: #2563EB !important; border: 1px solid #bfdbfe; }
-.ex-badge-reps { background: #ecfdf5; color: #059669 !important; border: 1px solid #a7f3d0; }
-.ex-badge-type { background: #f5f3ff; color: #7c3aed !important; border: 1px solid #ddd6fe; }
+.ex-badge-sets { background: #f8f4f4; color: #444141 !important; border: none; }
+.ex-badge-reps { background: #f8f4f4; color: #444141 !important; border: none; }
+.ex-badge-type { background: #ffe0d9; color: #7c1405 !important; border: none; }
 .exercise-card a {
     display: block;
-    margin-top: 14px;
-    border-radius: 14px;
+    margin: 10px 16px 16px 16px;
     overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: none;
 }
-.exercise-card a:hover {
-    box-shadow: 0 6px 24px rgba(37,99,235,0.15);
-    transform: scale(1.01);
-}
+.exercise-card a:hover { box-shadow: none; transform: none; }
 
 /* ── Reasoning chain ─────────────────────────────────────────────────────── */
+.reasoning-kicker {
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 800; color: #ae1800 !important; margin-bottom: 6px;
+}
 .reasoning-step {
-    border-radius: 12px;
     padding: 12px 16px;
     margin: 8px 0;
-    font-size: 13px;
-    line-height: 1.65;
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: ui-monospace, Consolas, monospace !important;
 }
+.reasoning-step * { font-family: ui-monospace, Consolas, monospace !important; font-size: 12px !important; }
 .reasoning-action {
-    background: #f0f7ff;
-    border-left: 4px solid #2563EB;
-    border: 1px solid #bfdbfe;
-    border-left: 4px solid #2563EB;
+    background: #eae9e9;
+    border: none;
+    border-left: 4px solid #ec3013;
 }
 .reasoning-observation {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    border-left: 4px solid #10B981;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    background: #eae9e9;
+    border: none;
+    border-left: 4px solid rgba(32,30,29,0.4);
 }
 .reasoning-warning {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-left: 4px solid #ef4444;
+    background: #ffe0d9;
+    border: none;
+    border-left: 4px solid #ae1800;
 }
+.reasoning-warning * { color: #7c1405 !important; }
 .tool-badge {
     display: inline-block;
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border: 1px solid #93c5fd;
-    color: #1d4ed8 !important;
-    padding: 3px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
+    background: #ffe0d9 !important;
+    border: none;
+    color: #7c1405 !important;
+    padding: 2px 10px;
+    font-size: 11px !important;
+    font-weight: 600;
     margin: 2px 4px;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
+    font-family: 'Archivo', sans-serif !important;
 }
 
 /* ── Milestone badges ────────────────────────────────────────────────────── */
@@ -349,224 +319,143 @@ button.secondary:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 1.5px solid #fbbf24;
-    border-radius: 24px;
-    padding: 8px 18px;
-    font-size: 13px;
-    margin: 4px;
-    color: #b45309 !important;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(251,191,36,0.2);
-}
-.milestone-badge:hover {
-    box-shadow: 0 4px 16px rgba(251,191,36,0.3);
-    transform: translateY(-1px);
-}
-
-/* ── Insight cards ───────────────────────────────────────────────────────── */
-.insight-card {
-    border-radius: 14px;
-    padding: 16px 20px;
-    margin: 10px 0;
-    font-size: 14px;
-    line-height: 1.65;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    border: 1px solid transparent;
-}
-.insight-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-}
-.insight-improvement {
-    background: #ecfdf5;
-    border-left: 4px solid #10B981;
-    border-color: #a7f3d0;
-}
-.insight-concern {
-    background: #fef2f2;
-    border-left: 4px solid #ef4444;
-    border-color: #fecaca;
-}
-.insight-suggestion {
-    background: #eff6ff;
-    border-left: 4px solid #2563EB;
-    border-color: #bfdbfe;
-}
-.insight-achievement {
-    background: #fffbeb;
-    border-left: 4px solid #f59e0b;
-    border-color: #fde68a;
-}
-.insight-info {
-    background: #f8fafc;
-    border-left: 4px solid #64748b;
-    border-color: #e2e8f0;
-}
-.insight-milestone {
-    background: #faf5ff;
-    border-left: 4px solid #8b5cf6;
-    border-color: #ddd6fe;
-}
-.insight-ready_to_progress {
-    background: #ecfdf5;
-    border-left: 4px solid #059669;
-    border-color: #a7f3d0;
-}
-
-/* ── Recommendation box ──────────────────────────────────────────────────── */
-.recommendation-box {
-    border-radius: 16px;
-    padding: 22px 28px;
-    margin: 18px 0;
-    font-size: 16px;
-    font-weight: 700;
-    text-align: center;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-}
-
-/* ── Hero trust badges ───────────────────────────────────────────────────── */
-.hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 16px;
-    border-radius: 24px;
+    background: #ffe0d9;
+    border: none;
+    padding: 4px 12px;
     font-size: 12px;
-    font-weight: 700;
     margin: 4px;
-    letter-spacing: 0.03em;
-    backdrop-filter: blur(8px);
-}
-.badge-agent {
-    background: rgba(134,239,172,0.18);
-    color: #86efac !important;
-    border: 1px solid rgba(134,239,172,0.38);
-}
-.badge-rag {
-    background: rgba(52,211,153,0.15);
-    color: #6ee7b7 !important;
-    border: 1px solid rgba(52,211,153,0.32);
-}
-.badge-clinical {
-    background: rgba(251,191,36,0.15);
-    color: #fcd34d !important;
-    border: 1px solid rgba(251,191,36,0.3);
-}
-.trust-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background: rgba(255,255,255,0.07);
-    border-radius: 24px;
-    font-size: 12px;
+    color: #7c1405 !important;
     font-weight: 600;
-    color: #bbf7d0 !important;
-    margin: 3px;
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(134,239,172,0.2);
+    box-shadow: none;
+}
+.milestone-badge:hover { box-shadow: none; transform: none; }
+
+/* ── Insight rows ────────────────────────────────────────────────────────── */
+.insight-card {
+    padding: 14px 0;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    box-shadow: none;
+    border: none;
+    border-bottom: 1px solid rgba(32,30,29,0.15);
+    background: transparent;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+.insight-card:hover { transform: none; box-shadow: none; }
+.insight-tag {
+    flex: none;
+    width: 90px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: #444141 !important;
+}
+.insight-concern .insight-tag { color: #ae1800 !important; }
+.insight-improvement, .insight-suggestion, .insight-achievement,
+.insight-info, .insight-milestone, .insight-ready_to_progress, .insight-concern {
+    background: transparent;
+    border-left: none;
+}
+
+/* ── Recommendation banner ───────────────────────────────────────────────── */
+.recommendation-box {
+    padding: 32px 28px;
+    margin: 18px 0;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-align: left;
+    box-shadow: none;
+}
+.rec-kicker {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-bottom: 8px;
 }
 
 /* ── Section dividers ────────────────────────────────────────────────────── */
 .section-divider {
     border: none;
-    border-top: 1px solid #e2e8f0;
+    border-top: 2px solid rgba(32,30,29,0.4);
     margin: 28px 0;
 }
 
-/* ── Session card layout ─────────────────────────────────────────────────── */
-.session-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 16px 20px;
-    margin: 8px 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-.session-card:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-    border-color: #bfdbfe;
-}
-.pain-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 700;
-}
-.pain-low { background: #ecfdf5; color: #059669 !important; border: 1px solid #a7f3d0; }
-.pain-mid { background: #fffbeb; color: #b45309 !important; border: 1px solid #fde68a; }
-.pain-high { background: #fef2f2; color: #dc2626 !important; border: 1px solid #fecaca; }
-.level-badge {
-    display: inline-block;
-    padding: 4px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 700;
-    background: #eff6ff;
-    color: #2563EB !important;
-    border: 1px solid #bfdbfe;
-}
-
 /* ── Form elements ───────────────────────────────────────────────────────── */
-input[type="range"] {
-    height: 8px !important;
-    border-radius: 4px !important;
-}
+input[type="range"] { accent-color: #ec3013 !important; height: 6px !important; }
+input[type="checkbox"], input[type="radio"] { accent-color: #ec3013 !important; }
 input, textarea {
-    color: #1e293b !important;
-    border-radius: 12px !important;
-    border-color: #e2e8f0 !important;
+    color: #201e1d !important;
+    border: 2px solid rgba(32,30,29,0.4) !important;
+    background: #f3f2f2 !important;
+    caret-color: #ec3013 !important;
+    box-shadow: none !important;
 }
+input:hover, textarea:hover { border-color: rgba(32,30,29,0.6) !important; }
 input:focus, textarea:focus {
-    border-color: #2563EB !important;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
+    border-color: #ec3013 !important;
+    box-shadow: none !important;
 }
 .checkbox-group label {
     padding: 8px 16px !important;
-    border-radius: 10px !important;
-    border: 1.5px solid #e2e8f0 !important;
+    border: 2px solid rgba(32,30,29,0.4) !important;
     margin: 4px !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 14px !important;
 }
 .checkbox-group label:hover {
-    border-color: #93c5fd !important;
-    background: #f0f7ff !important;
+    border-color: #201e1d !important;
+    background: rgba(32,30,29,0.07) !important;
 }
 .checkbox-group input:checked + label,
 .checkbox-group label.selected {
-    background: #eff6ff !important;
-    border-color: #2563EB !important;
-    color: #2563EB !important;
+    background: #ec3013 !important;
+    border-color: #ec3013 !important;
+    color: #f3f2f2 !important;
 }
+.checkbox-group label.selected * { color: #f3f2f2 !important; }
 
-/* ── Accordion ───────────────────────────────────────────────────────────── */
-.accordion {
-    border-radius: 14px !important;
-    border: 1px solid #e2e8f0 !important;
-    background: #ffffff !important;
+/* ── Blocks / panels: flatten Gradio chrome ──────────────────────────────── */
+.block, .form, .panel, fieldset {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
-.accordion *, .accordion label, .accordion span { color: #1e293b !important; }
+.accordion {
+    border: 2px solid rgba(32,30,29,0.4) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.accordion *, .accordion label, .accordion span { color: #201e1d !important; }
 
 /* ── Misc ────────────────────────────────────────────────────────────────── */
 footer { display: none !important; }
-.markdown-text, .markdown-text *, .prose, .prose * { color: #1e293b !important; }
-.dataframe { border-radius: 12px !important; overflow: hidden; }
+.markdown-text, .markdown-text *, .prose, .prose * { color: #201e1d !important; }
+.dataframe { overflow: hidden; border: none !important; }
 .dataframe th {
-    background: #f8fafc !important;
-    color: #475569 !important;
-    font-weight: 700 !important;
-    font-size: 12px !important;
+    background: transparent !important;
+    color: rgba(32,30,29,0.6) !important;
+    font-weight: 800 !important;
+    font-size: 11px !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
+    letter-spacing: 0.08em !important;
+    border-bottom: 2px solid rgba(32,30,29,0.4) !important;
 }
 .dataframe td {
-    color: #1e293b !important;
+    color: #201e1d !important;
     font-size: 14px !important;
+    border-bottom: 1px solid rgba(32,30,29,0.15) !important;
 }
 """
 
@@ -613,9 +502,10 @@ def _progress_html(collected: dict) -> str:
         if key == "occupation":
             has_data = bool(collected.get("occupation") or collected.get("physical_demands"))
         cls = "progress-done" if has_data else "progress-pending"
-        icon = "&#10003;" if has_data else "&#9679;"
-        pills.append(f'<span class="progress-pill {cls}">{icon} {label}</span>')
-    return f'<div class="progress-bar">{"".join(pills)}</div>'
+        text = f"&#10003; {label}" if has_data else label
+        pills.append(f'<span class="progress-pill {cls}">{text}</span>')
+    return (f'<div class="progress-bar"><span class="progress-label">Assessment</span>'
+            f'{"".join(pills)}</div>')
 
 
 # ── Format reasoning chain ──────────────────────────────────────────────────
@@ -634,7 +524,7 @@ def _format_reasoning_chain(chain: list) -> str:
     if not chain:
         return ""
     html = '<div style="margin-top: 8px;">'
-    html += '<h4 style="color: #0f172a; margin-bottom: 10px; font-size: 15px; font-weight: 700;">Agent Reasoning Chain</h4>'
+    html += '<div class="reasoning-kicker">Reasoning chain</div>'
     for step in chain:
         if "action" in step:
             tool_label = TOOL_LABELS.get(step["action"], step["action"])
@@ -644,10 +534,10 @@ def _format_reasoning_chain(chain: list) -> str:
                 args_str = args_str[:120] + "..."
             html += (
                 f'<div class="reasoning-step reasoning-action">'
-                f'<strong>Action:</strong> <span class="tool-badge">{tool_label}</span>'
+                f'ACTION&nbsp;&nbsp;[{tool_label}]'
             )
             if args_str:
-                html += f' <span style="color:#64748b; font-size:12px;">({args_str})</span>'
+                html += f' &mdash; {args_str}'
             html += '</div>'
         elif "observation" in step:
             tool_label = TOOL_LABELS.get(step["observation"], step["observation"])
@@ -656,7 +546,7 @@ def _format_reasoning_chain(chain: list) -> str:
             cls = "reasoning-warning" if is_warning else "reasoning-observation"
             html += (
                 f'<div class="reasoning-step {cls}">'
-                f'<strong>Observation ({tool_label}):</strong> {result_str}'
+                f'RESULT&nbsp;&nbsp;[{tool_label}] &mdash; {result_str}'
                 f'</div>'
             )
     html += '</div>'
@@ -668,20 +558,14 @@ def _format_reasoning_chain(chain: list) -> str:
 def _format_prescription_html(result: dict) -> str:
     plan = result["plan"]
     exercises_html = ""
-    type_icons = {
-        "mobility": "&#128260;", "stretching": "&#129496;",
-        "strengthening": "&#128170;", "stability": "&#9878;",
-        "plyometric": "&#127939;", "posture": "&#129492;",
-        "functional": "&#127947;"
-    }
     for ex in plan["exercises"]:
         video_id = ex.get("video") or ex.get("video_id") or ""
         video_embed = ""
         if video_id:
             embed_url = f"https://www.youtube.com/embed/{video_id}?rel=0"
             video_embed = (
-                f'<div style="margin-top:14px; border-radius:14px; overflow:hidden; '
-                f'background:#0f172a;">'
+                f'<div style="margin:10px 16px 16px 16px; overflow:hidden; '
+                f'border:2px solid rgba(32,30,29,0.4); background:#201e1d;">'
                 f'<iframe src="{embed_url}" '
                 f'title="Exercise video" '
                 f'style="width:100%; aspect-ratio:16/9; border:0; display:block;" '
@@ -691,14 +575,12 @@ def _format_prescription_html(result: dict) -> str:
                 f'allowfullscreen></iframe>'
                 f'</div>'
             )
-        icon = type_icons.get(ex.get("type", ""), "&#127947;")
         ex_type = ex.get("type", "general").title()
         exercises_html += (
             f'<div class="exercise-card">'
-            f'<h4>{icon} {ex["name"]}</h4>'
+            f'<h4>{ex["name"]}</h4>'
             f'<div class="ex-meta">'
-            f'<span class="ex-badge ex-badge-sets">Sets: {ex["sets"]}</span>'
-            f'<span class="ex-badge ex-badge-reps">Reps: {ex["reps"]}</span>'
+            f'<span class="ex-badge ex-badge-sets">{ex["sets"]} sets &times; {ex["reps"]}</span>'
             f'<span class="ex-badge ex-badge-type">{ex_type}</span>'
             f'</div>'
             f'<p>{ex.get("instruction", "")}</p>'
@@ -761,68 +643,59 @@ def _stats_html(progress_data: dict) -> str:
     stats = get_overall_stats(progress_data)
     if stats["total_sessions"] == 0:
         return """
-        <div style="text-align:center; padding:48px 24px; background:#ffffff;
-                    border-radius:16px; border:1px solid #e2e8f0;
-                    box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <div style="font-size:48px; margin-bottom:8px;">&#128203;</div>
-            <p style="font-size:16px; color:#475569 !important; font-weight:600; margin:0 0 4px 0;">
+        <div style="padding:32px 24px; background:#eae9e9; margin:16px 0;">
+            <p style="font-size:16px; font-weight:800; color:#201e1d !important; margin:0 0 4px 0;">
                 No sessions logged yet</p>
-            <p style="font-size:14px; color:#94a3b8 !important; margin:0;">
-                Complete a consultation and start tracking your recovery!</p>
+            <p style="font-size:13px; color:rgba(32,30,29,0.6) !important; margin:0;">
+                Complete a consultation and start tracking your recovery.</p>
         </div>"""
 
     pain_pct = stats.get("pain_change_pct", 0)
-    pain_color = "#10B981" if pain_pct < 0 else "#ef4444" if pain_pct > 0 else "#64748b"
-    pain_arrow = "&#8595;" if pain_pct < 0 else "&#8593;" if pain_pct > 0 else "&#8594;"
+    if pain_pct < 0:
+        pain_sub = f"Pain &middot; down {abs(pain_pct):.0f}%"
+    elif pain_pct > 0:
+        pain_sub = f"Pain &middot; up {pain_pct:.0f}%"
+    else:
+        pain_sub = "Pain"
 
-    cards = [
-        ("&#128197;", "#eff6ff", "#2563EB", stats['total_sessions'], "Sessions", ""),
-        ("&#128201;", "#ecfdf5" if pain_pct <= 0 else "#fef2f2",
-         pain_color, f"{stats.get('current_pain', 'N/A')}/10",
-         "Current Pain", f"{pain_arrow} {abs(pain_pct):.0f}%"),
-        ("&#9989;", "#ecfdf5", "#10B981", f"{stats.get('avg_adherence', 0):.0f}%", "Adherence", ""),
-        ("&#128293;", "#fff7ed", "#f97316", stats.get('current_streak', 0), "Day Streak", ""),
-        ("&#127947;", "#f5f3ff", "#7c3aed", f"L{stats.get('current_level', '?')}", "Level", ""),
-        ("&#127942;", "#fffbeb", "#f59e0b", stats.get('milestones_earned', 0), "Milestones", ""),
+    cells = [
+        (str(stats['total_sessions']), "", "Sessions", False),
+        (f"{stats.get('current_pain', 'N/A')}", "/10", pain_sub, True),
+        (f"{stats.get('avg_adherence', 0):.0f}", "%", "Adherence", False),
+        (str(stats.get('current_streak', 0)), "", "Day streak", False),
+        (f"L{stats.get('current_level', '?')}", "", "Level", False),
+        (str(stats.get('milestones_earned', 0)), "", "Milestones", False),
     ]
 
-    html = '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(155px, 1fr)); gap:14px; margin:16px 0;">'
-    for icon, bg, accent, value, label, sub in cards:
-        sub_html = f'<p style="color:{accent} !important; font-size:12px; font-weight:600; margin:2px 0 0 0;">{sub}</p>' if sub else ''
-        html += f"""
-        <div class="stat-card">
-            <div class="stat-icon-wrap" style="background:{bg};">
-                <span style="font-size:22px;">{icon}</span>
-            </div>
-            <h3 style="color:{accent} !important;">{value}</h3>
-            <p>{label}</p>
-            {sub_html}
-        </div>"""
+    html = '<div class="stat-strip">'
+    for value, unit, label, accent in cells:
+        num_cls = "stat-num accent" if accent else "stat-num"
+        unit_html = f'<span class="unit">{unit}</span>' if unit else ''
+        html += (
+            f'<div class="stat-cell">'
+            f'<div class="{num_cls}">{value}{unit_html}</div>'
+            f'<div class="stat-label">{label}</div>'
+            f'</div>'
+        )
     html += '</div>'
 
-    # Recovery status bar
+    # Recovery status line (flat, modernist)
     if pain_pct < -15:
-        status_label, status_color, status_bg, status_pct = "Improving", "#10B981", "#ecfdf5", min(90, 50 + abs(pain_pct))
+        status_label, status_pct = "Improving", min(90, 50 + abs(pain_pct))
     elif pain_pct > 10:
-        status_label, status_color, status_bg, status_pct = "Needs Attention", "#ef4444", "#fef2f2", max(20, 50 - pain_pct)
+        status_label, status_pct = "Needs attention", max(20, 50 - pain_pct)
     else:
-        status_label, status_color, status_bg, status_pct = "Stable", "#f59e0b", "#fffbeb", 50
+        status_label, status_pct = "Stable", 50
 
     html += f"""
-    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px;
-                padding:20px 24px; margin-top:16px;
-                box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <span style="font-weight:700; font-size:15px; color:#0f172a !important;">Your Recovery Status</span>
-            <span style="padding:5px 14px; border-radius:20px; font-size:12px; font-weight:700;
-                         background:{status_bg}; color:{status_color} !important; border:1px solid {status_color}22;">
-                {status_label}
-            </span>
+    <div style="margin-top:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+            <span style="font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
+                         font-weight:800; color:#201e1d !important;">Recovery status</span>
+            <span style="font-size:13px; color:rgba(32,30,29,0.6) !important;">{status_label}</span>
         </div>
-        <div style="background:#f1f5f9; border-radius:8px; height:10px; overflow:hidden;">
-            <div style="background:linear-gradient(90deg, {status_color}, {status_color}aa);
-                        height:100%; width:{status_pct}%; border-radius:8px;
-                        transition:width 0.5s ease;"></div>
+        <div style="background:#eae9e9; height:10px; border:none;">
+            <div style="background:#ec3013; height:100%; width:{status_pct}%;"></div>
         </div>
     </div>"""
 
@@ -839,46 +712,58 @@ def _milestones_html(progress_data: dict) -> str:
 
 # ── Format insights ─────────────────────────────────────────────────────────
 
-INSIGHT_ICONS = {
-    "improvement": "&#128200;",
-    "concern": "&#9888;&#65039;",
-    "suggestion": "&#128161;",
-    "achievement": "&#127942;",
-    "info": "&#8505;&#65039;",
-    "milestone": "&#11088;",
-    "ready_to_progress": "&#128640;",
+INSIGHT_TAGS = {
+    "improvement": "Positive",
+    "concern": "Warning",
+    "suggestion": "Tip",
+    "achievement": "Milestone",
+    "info": "Info",
+    "milestone": "Milestone",
+    "ready_to_progress": "Positive",
 }
 
 RECOMMENDATION_STYLES = {
-    "progress": ("background: linear-gradient(135deg, #ecfdf5, #d1fae5); color:#065f46 !important; border:2px solid #10B981;",
-                 "&#128640; Ready to Progress to Next Level!"),
-    "maintain": ("background: linear-gradient(135deg, #eff6ff, #dbeafe); color:#1e40af !important; border:2px solid #2563EB;",
-                 "&#128170; Maintain Current Level — Keep Going!"),
-    "regress": ("background: linear-gradient(135deg, #fef2f2, #fecaca); color:#991b1b !important; border:2px solid #ef4444;",
-                "&#9888; Consider Stepping Back a Level for Safety"),
-    "insufficient_data": ("background: linear-gradient(135deg, #f8fafc, #f1f5f9); color:#64748b !important; border:2px solid #cbd5e1;",
-                          "&#128202; Log More Sessions for Personalized Insights"),
+    "progress": ("background:#ec3013; color:#f3f2f2 !important;",
+                 "Ready to progress<br>to the next level"),
+    "maintain": ("background:#201e1d; color:#f3f2f2 !important;",
+                 "Maintain current level<br>&mdash; keep going"),
+    "regress": ("background:#ae1800; color:#f3f2f2 !important;",
+                "Consider stepping back<br>a level for safety"),
+    "insufficient_data": ("background:#eae9e9; color:#201e1d !important;",
+                          "Log more sessions for<br>personalized insights"),
 }
 
 
 def _format_insights_html(analysis: dict) -> str:
     insights = analysis.get("insights", [])
     if not insights:
-        return '<p style="color:#94a3b8 !important;">No insights yet. Log sessions to generate recovery insights.</p>'
+        return ('<p style="color:rgba(32,30,29,0.55) !important; font-size:14px;">'
+                'No insights yet. Log sessions to generate recovery insights.</p>')
 
     html = ""
     for ins in insights:
         itype = ins.get("type", "info")
-        icon = INSIGHT_ICONS.get(itype, "&#8226;")
+        tag = INSIGHT_TAGS.get(itype, "Info")
         cls = f"insight-{itype}"
-        html += f'<div class="insight-card {cls}">{icon} {ins["text"]}</div>'
+        html += (
+            f'<div class="insight-card {cls}">'
+            f'<span class="insight-tag">{tag}</span>'
+            f'<span style="font-size:14px;">{ins["text"]}</span>'
+            f'</div>'
+        )
     return html
 
 
 def _format_recommendation_html(analysis: dict) -> str:
     rec = analysis.get("recommendation", "insufficient_data")
     style, text = RECOMMENDATION_STYLES.get(rec, RECOMMENDATION_STYLES["insufficient_data"])
-    return f'<div class="recommendation-box" style="{style}">{text}</div>'
+    fg = "#f3f2f2" if rec != "insufficient_data" else "#201e1d"
+    return (
+        f'<div class="recommendation-box" style="{style}">'
+        f'<span class="rec-kicker" style="color:{fg} !important;">Recommendation</span>'
+        f'<span style="color:{fg} !important;">{text}</span>'
+        f'</div>'
+    )
 
 
 # ── Progress table ──────────────────────────────────────────────────────────
@@ -1163,52 +1048,20 @@ End with one actionable tip for their next session."""
 def build_app():
     with gr.Blocks(theme=THEME, css=CSS, title="PhysioGemma — AI Physiotherapy Agent") as app:
 
-        # ── Hero Section ──
+        # ── Top nav (Modernist) ──
         gr.HTML("""
-        <div style="text-align:center; padding:40px 28px 34px 28px;
-                    background:linear-gradient(135deg, #0d2818 0%, #1a3c2a 45%, #1e5c3a 100%);
-                    border-radius:20px; margin-bottom:20px;
-                    box-shadow:0 8px 36px rgba(13,40,24,0.45);
-                    position:relative; overflow:hidden;">
-
-            <!-- Subtle background pattern -->
-            <div style="position:absolute; top:0; left:0; right:0; bottom:0;
-                        background:radial-gradient(circle at 15% 85%, rgba(52,211,153,0.12) 0%, transparent 52%),
-                                   radial-gradient(circle at 85% 15%, rgba(16,185,129,0.10) 0%, transparent 52%),
-                                   radial-gradient(circle at 50% 50%, rgba(134,239,172,0.04) 0%, transparent 70%);
-                        pointer-events:none;"></div>
-
-            <div style="position:relative; z-index:1;">
-                <p style="font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase;
-                          color:#86efac !important; margin:0 0 12px 0;">
-                    AI-Powered Recovery Tracking
-                </p>
-                <h1 style="font-size:2.8em; margin:0; color:#ffffff !important;
-                            font-weight:800; letter-spacing:-0.03em;">
-                    &#129658; PhysioGemma
-                </h1>
-                <p style="font-size:1.1em; color:#a7f3d0 !important; margin:8px 0 20px 0; font-weight:400;">
-                    AI Physiotherapy <strong style="color:#ffffff !important;">Agent</strong>
-                    powered by <strong style="color:#4ade80 !important;">Gemma 4</strong>
-                </p>
-
-                <div style="margin:14px 0;">
-                    <span class="hero-badge badge-agent">&#9889; ReAct Agent</span>
-                    <span class="hero-badge badge-rag">&#128218; RAG-Enhanced</span>
-                    <span class="hero-badge badge-clinical">&#127973; Clinical Decision Support</span>
-                </div>
-
-                <div style="margin:16px 0 8px 0;">
-                    <span class="trust-item">&#9989; Evidence-Based</span>
-                    <span class="trust-item">&#128737; Safe Recommendations</span>
-                    <span class="trust-item">&#128200; Progress Tracking</span>
-                    <span class="trust-item">&#127909; 183 Exercise Videos</span>
-                </div>
-
-                <p style="font-size:11px; color:#6ee7b7 !important; margin:16px 0 0 0; font-style:italic;">
-                    Built with clinical reasoning + AI &bull; Not medical advice
-                </p>
+        <div style="display:flex; align-items:center; gap:16px; padding:18px 8px 16px 8px;
+                    border-bottom:2px solid rgba(32,30,29,0.4); flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:10px; margin-right:auto;">
+                <span style="display:inline-block; width:14px; height:14px; background:#ec3013;"></span>
+                <span style="font-size:19px; font-weight:800; color:#201e1d !important;
+                             letter-spacing:-0.015em; font-family:'Archivo',sans-serif;">PhysioGemma</span>
             </div>
+            <span style="font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
+                         padding:4px 12px; border:2px solid rgba(32,30,29,0.4);
+                         color:#201e1d !important;">
+                Gemma 4 26B &middot; no login &middot; data stays in your browser
+            </span>
         </div>
         """)
 
@@ -1225,34 +1078,31 @@ def build_app():
             # ════════════════════════════════════════════════════════════
             with gr.TabItem("Consultation", id="consult"):
 
-                with gr.Accordion("How does the PhysioGemma Agent work?", open=False):
-                    gr.Markdown("""
-**PhysioGemma** is a **ReAct Agent** that autonomously conducts clinical assessments:
-
-**5 Agent Tools:** Safety Check, Classify Occupation, Determine Exercise Level, Generate Prescription, Progress Analysis
-**+ RAG-Enhanced** clinical reasoning with condition-specific evidence injection
-
-Every tool call is logged in the **Reasoning Chain** for full transparency.
-
-**8 Conditions:** Lower Back Pain, Knee OA, Neck Pain, Frozen Shoulder, Sciatica, Hip OA, Plantar Fasciitis, Tennis Elbow
-                    """)
+                gr.HTML("""
+                <div style="border:2px solid #201e1d; padding:16px 18px; margin:12px 0 4px 0;">
+                    <div style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+                                font-weight:800; color:#ae1800 !important; margin-bottom:6px;">
+                        How decisions are made</div>
+                    <p style="margin:0; font-size:13px; line-height:1.6; color:#201e1d !important;">
+                        Every exercise comes from a deterministic rule engine &mdash; Gemma 4 reasons
+                        and explains, but can never invent an unsafe exercise. Red flags are checked
+                        on every message. Every tool call is logged in the reasoning chain.</p>
+                </div>
+                """)
 
                 # ── OPTIONAL: Radiology report (Mode 1 imaging) ──────────────
                 gr.HTML("""
-                <div style="background:#eff6ff; border:1px solid #bfdbfe;
-                            border-radius:12px; padding:12px 16px; margin:8px 0;">
-                    <p style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:#1e40af !important;">
-                        🩻 MRI / X-ray Report <span style="font-weight:400; color:#64748b !important;">(optional)</span>
-                    </p>
-                    <p style="margin:0; font-size:12px; color:#475569 !important; line-height:1.5;">
-                        Paste your written radiology report and PhysioGemma will tailor your prescription to your imaging findings.
-                        Leave empty to skip &mdash; text reports only, not scan images.
-                    </p>
+                <div style="background:#eae9e9; padding:18px 20px 6px 20px; margin:8px 0 0 0;">
+                    <h4 style="font-weight:800; font-size:16px; margin:0 0 4px 0; color:#201e1d !important;">
+                        Imaging report <span style="font-weight:400; color:rgba(32,30,29,0.6) !important;">(optional)</span></h4>
+                    <p style="margin:0; font-size:13px; color:rgba(32,30,29,0.6) !important;">
+                        Paste your MRI / X-ray report text. Findings are parsed locally and bias
+                        your plan &mdash; 45+ patterns, red flags included.</p>
                 </div>
                 """)
                 imaging_report_box = gr.Textbox(
                     label="Radiology report text (leave empty to skip)",
-                    placeholder="Example: MRI Lumbar Spine — L4-L5 disc protrusion with mild left lateral recess stenosis. No nerve root impingement. L5-S1 mild disc bulge. No compression fracture.",
+                    placeholder="e.g. MRI Lumbar Spine — L4-L5 disc protrusion with mild left lateral recess stenosis. No nerve root impingement.",
                     lines=3,
                 )
 
@@ -1314,11 +1164,12 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
             with gr.TabItem("My Progress", id="progress"):
 
                 gr.HTML("""
-                <div style="margin-bottom:8px;">
-                    <h3 style="color:#0f172a !important; font-size:20px; font-weight:800; margin:0 0 4px 0;">
-                        Track Your Recovery</h3>
-                    <p style="color:#64748b !important; font-size:14px; margin:0;">
-                        Monitor pain levels, adherence, and recovery progress over time</p>
+                <div style="display:flex; align-items:baseline; justify-content:space-between;
+                            border-bottom:2px solid rgba(32,30,29,0.4); padding-bottom:10px; margin:8px 0 4px 0;">
+                    <h3 style="color:#201e1d !important; font-size:22px; font-weight:800; margin:0;">
+                        Track your recovery</h3>
+                    <span style="color:rgba(32,30,29,0.55) !important; font-size:13px;">
+                        pain &middot; adherence &middot; streak &middot; milestones</span>
                 </div>
                 """)
                 stats_display = gr.HTML(value=_stats_html({}))
@@ -1326,10 +1177,10 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
 
                 gr.HTML("<hr class='section-divider'>")
                 gr.HTML("""
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px;
-                            padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                    <h3 style="color:#0f172a !important; font-size:18px; font-weight:700; margin:0 0 16px 0;">
-                        &#128221; Log Today's Session</h3>
+                <div style="border-bottom:2px solid rgba(32,30,29,0.4); padding-bottom:10px; margin-bottom:16px;">
+                    <h3 style="color:#201e1d !important; font-size:22px; font-weight:800; margin:0;">
+                        Log today's session</h3>
+                </div>
                 """)
 
                 with gr.Row():
@@ -1360,33 +1211,30 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
 
                 log_status = gr.Markdown("")
 
-                gr.HTML("</div>")  # close session log card
-
                 gr.HTML("<hr class='section-divider'>")
                 gr.HTML("""
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px;
-                            padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                    <h3 style="color:#0f172a !important; font-size:18px; font-weight:700; margin:0 0 4px 0;">
-                        &#128200; Recovery Trend</h3>
-                    <p style="color:#64748b !important; font-size:13px; margin:0 0 16px 0;">
-                        Pain and adherence over time</p>
+                <div style="display:flex; align-items:baseline; justify-content:space-between;
+                            border-bottom:2px solid rgba(32,30,29,0.4); padding-bottom:10px; margin-bottom:16px;">
+                    <h3 style="color:#201e1d !important; font-size:22px; font-weight:800; margin:0;">
+                        Recovery graph</h3>
+                    <span style="color:rgba(32,30,29,0.55) !important; font-size:13px;">
+                        Pain (VAS) &middot; adherence over time</span>
+                </div>
                 """)
                 recovery_plot = gr.Plot(label="Recovery Progress")
-                gr.HTML("</div>")
 
                 gr.HTML("<hr class='section-divider'>")
                 gr.HTML("""
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px;
-                            padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                    <h3 style="color:#0f172a !important; font-size:18px; font-weight:700; margin:0 0 16px 0;">
-                        &#128203; Session History</h3>
+                <div style="border-bottom:2px solid rgba(32,30,29,0.4); padding-bottom:10px; margin-bottom:4px;">
+                    <h3 style="color:#201e1d !important; font-size:17px; font-weight:800; margin:0;">
+                        Session history</h3>
+                </div>
                 """)
                 session_history = gr.Dataframe(
                     headers=["Date", "Pain", "Adherence", "Difficulty", "Level", "Notes"],
                     label="Past Sessions",
                     interactive=False,
                 )
-                gr.HTML("</div>")
 
             # ════════════════════════════════════════════════════════════
             # TAB 3: AI INSIGHTS
@@ -1394,59 +1242,53 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
             with gr.TabItem("AI Insights", id="insights"):
 
                 gr.HTML("""
-                <div style="margin-bottom:16px;">
-                    <h3 style="color:#0f172a !important; font-size:20px; font-weight:800; margin:0 0 4px 0;">
-                        Recovery Insights powered by Gemma 4</h3>
-                    <p style="color:#64748b !important; font-size:14px; margin:0;">
-                        Combines rule-based analysis with AI-generated narrative</p>
+                <div style="border-bottom:2px solid rgba(32,30,29,0.4); padding-bottom:12px; margin-bottom:16px;">
+                    <h3 style="color:#201e1d !important; font-size:25px; font-weight:800; margin:0;">
+                        Recovery insights</h3>
+                    <p style="color:rgba(32,30,29,0.55) !important; font-size:13px; margin:4px 0 0 0;">
+                        Rule-based analysis of your sessions, narrated by Gemma 4</p>
                 </div>
                 """)
 
-                refresh_insights_btn = gr.Button("Generate Recovery Insights", variant="primary", size="lg")
+                refresh_insights_btn = gr.Button("Generate insights", variant="primary", size="lg")
 
                 recommendation_display = gr.HTML("")
                 insights_display = gr.HTML("")
 
                 gr.HTML("<hr class='section-divider'>")
                 gr.HTML("""
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px;
-                            padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                    <h3 style="color:#0f172a !important; font-size:18px; font-weight:700; margin:0 0 16px 0;">
-                        &#129302; AI Recovery Report</h3>
+                <div style="background:#eae9e9; padding:20px 22px;">
+                    <div style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+                                color:#ae1800 !important; font-weight:800; margin-bottom:8px;">
+                        Gemma 4 &middot; your recovery report</div>
                 """)
                 ai_narrative_display = gr.Markdown("")
-                gr.HTML("</div>")
+                gr.HTML("""</div>
+                <div style="border:2px solid #201e1d; padding:16px 18px; margin-top:24px;">
+                    <div style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+                                font-weight:800; margin-bottom:6px; color:#201e1d !important;">
+                        How this works</div>
+                    <p style="margin:0; font-size:13px; line-height:1.6; color:#201e1d !important;">
+                        Trends, adherence and level-readiness are computed by deterministic rules
+                        on your logged sessions. Gemma 4 only narrates &mdash; it never decides
+                        your exercise level.</p>
+                </div>
+                <p style="margin:16px 0 0 0; font-size:12px; color:rgba(32,30,29,0.55) !important;">
+                    PhysioGemma supplements, and does not replace, professional physiotherapy care.
+                    If pain worsens sharply or new symptoms appear, consult a clinician.</p>
+                """)
 
         # Footer
         gr.HTML("""
-        <div style="text-align:center; padding:28px 24px;
-                    background:linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-                    border-radius:16px; margin-top:24px;
-                    border:1px solid #e2e8f0;
-                    box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-            <p style="color:#1e293b !important; font-size:14px; font-weight:700; margin:0 0 6px 0;">
-                PhysioGemma Agent
-            </p>
-            <p style="color:#64748b !important; font-size:12px; margin:4px 0;">
-                Kaggle Gemma 4 Good Hackathon &bull; Health &amp; Sciences Track
-            </p>
-            <div style="margin:10px 0 6px 0; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-                <span style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
-                             background:#eff6ff; color:#2563EB !important; border:1px solid #bfdbfe;">
-                    ReAct Agent</span>
-                <span style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
-                             background:#ecfdf5; color:#059669 !important; border:1px solid #a7f3d0;">
-                    RAG-Enhanced</span>
-                <span style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
-                             background:#f5f3ff; color:#7c3aed !important; border:1px solid #ddd6fe;">
-                    183 Exercises</span>
-                <span style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
-                             background:#fef2f2; color:#dc2626 !important; border:1px solid #fecaca;">
-                    Not Medical Advice</span>
-            </div>
-            <p style="color:#94a3b8 !important; font-size:11px; margin:8px 0 0 0;">
-                Created by Gaurav Birwatkar &bull; CC-BY 4.0 License
-            </p>
+        <div style="margin-top:28px; padding:16px 8px 8px 8px;
+                    border-top:2px solid rgba(32,30,29,0.4);
+                    display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;">
+            <span style="font-size:14px; font-weight:800; color:#201e1d !important;">PhysioGemma</span>
+            <span style="font-size:12px; color:rgba(32,30,29,0.55) !important;">
+                Kaggle Gemma 4 Good Hackathon &middot; Health &amp; Sciences Track</span>
+            <span style="margin-left:auto; font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+                         color:rgba(32,30,29,0.55) !important;">
+                ReAct agent &middot; 183 exercises &middot; not medical advice &middot; CC-BY 4.0</span>
         </div>
         """)
 
