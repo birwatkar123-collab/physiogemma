@@ -524,6 +524,31 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                 model=MODEL_ID, contents=contents, config=config,
             )
 
+        # SAFETY NET: if the model determined the exercise level but stalled
+        # before calling get_exercise_prescription, call it directly — the
+        # inputs are deterministic and already collected.
+        collected = state.get("collected", {})
+        if (not prescription_data
+                and collected.get("level")
+                and collected.get("condition")
+                and not collected.get("red_flags_detected")):
+            fargs = {
+                "condition": collected["condition"],
+                "level": collected["level"],
+                "occupation_category": collected.get("physical_demands", "unknown"),
+                "aggravating_factors": collected.get("aggravating_factors", []) or [],
+                "height_cm": collected.get("height_cm", 0) or 0,
+                "weight_kg": collected.get("weight_kg", 0) or 0,
+            }
+            reasoning_chain.append({"action": "get_exercise_prescription", "args": fargs})
+            forced = _execute_tool("get_exercise_prescription", fargs)
+            reasoning_chain.append({
+                "observation": "get_exercise_prescription",
+                "result": _summarize_result(forced),
+            })
+            if "exercises" in forced:
+                prescription_data = forced
+
         # Extract final text response
         final_text = ""
         if response.candidates and response.candidates[0].content.parts:
@@ -533,8 +558,38 @@ def process_message(message: str, history: list, state: dict) -> tuple:
 
         final_text = _clean_response(_strip_internal_monologue(final_text.strip()))
 
+        # If a prescription exists but the model produced no text, force a
+        # short explanation with tools disabled so it cannot stall again.
+        if prescription_data and not final_text:
+            try:
+                lvl = prescription_data.get("level", "?")
+                label = prescription_data.get("label", "")
+                exp_prompt = (
+                    f"The patient's exercise prescription is ready: Level {lvl} ({label}), "
+                    f"{prescription_data.get('total_exercises', 4)} exercises for "
+                    f"{collected.get('condition', 'their condition')}. "
+                    "Write a warm 2-3 sentence message telling them their personalized "
+                    "plan is ready below, and encourage them to start gently."
+                )
+                exp_resp = client.models.generate_content(
+                    model=MODEL_ID,
+                    contents=[types.Content(role="user", parts=[types.Part.from_text(text=exp_prompt)])],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        max_output_tokens=256,
+                        temperature=0.3,
+                    ),
+                )
+                if exp_resp.text:
+                    final_text = _clean_response(_strip_internal_monologue(exp_resp.text.strip()))
+            except Exception:
+                pass
+
         if not final_text:
-            final_text = "I'm processing your information. Could you tell me more about your condition?"
+            if prescription_data:
+                final_text = "Your personalized exercise plan is ready — scroll down to see it!"
+            else:
+                final_text = "I'm processing your information. Could you tell me more about your condition?"
 
         # If prescription was generated, return structured result
         if prescription_data:
