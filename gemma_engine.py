@@ -378,8 +378,6 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             ),
             max_output_tokens=512,
             temperature=0.2,
-            presence_penalty=0.8,
-            frequency_penalty=0.8,
         )
 
         response = client.models.generate_content(
