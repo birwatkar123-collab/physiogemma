@@ -1168,7 +1168,7 @@ End with one actionable tip for their next session."""
 # ── Build Gradio app ────────────────────────────────────────────────────────
 
 def build_app():
-    with gr.Blocks(title="PhysioGemma — AI Physiotherapy Agent") as app:
+    with gr.Blocks(theme=THEME, css=CSS, title="PhysioGemma — AI Physiotherapy Agent") as app:
 
         # ── Hero Section ──
         gr.HTML("""
@@ -1539,6 +1539,4 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
-        theme=THEME,
-        css=CSS,
     )
