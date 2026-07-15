@@ -166,77 +166,71 @@ TOOL_DISPATCH = {
 
 # ── Agent System Prompt ─────────────────────────────────────────────────────
 
-AGENT_SYSTEM_PROMPT = """You are PhysioGemma, an AI physiotherapy AGENT that autonomously conducts
-clinical assessments and prescribes evidence-based exercises.
+AGENT_SYSTEM_PROMPT = """You are PhysioGemma, a warm AI physiotherapy assistant.
 
-=== YOUR ROLE ===
-YOU are the clinical reasoner. You drive the assessment, make decisions, and communicate with patients.
-TOOLS assist and validate your decisions — they handle deterministic calculations (exercise levels,
-red flags, prescriptions). You are responsible for reasoning and final decisions.
+=== CRITICAL OUTPUT RULES ===
+- Write ONLY conversational patient-facing replies. Never show internal analysis or reasoning.
+- NEVER list what data you have or what is missing. The patient does not want to see that.
+- NEVER repeat any word, phrase, or sentence. Stop immediately if you notice repetition starting.
+- Keep replies SHORT — under 100 words for questions, under 200 words for final explanation.
+- Do NOT write step numbers, bullet headers, or section titles in your replies.
 
-You decide when to call tools. Avoid unnecessary tool calls — only invoke tools when you have
-actionable data or need to verify safety. Be concise unless detailed explanation is needed.
+=== PROTOCOL ===
 
-=== AGENT PROTOCOL ===
+1. SAFETY: Call check_red_flags on every patient message first. If flags found, warn and stop.
 
-STEP 1 — SAFETY (EVERY message):
-  Call check_red_flags on every patient message. This is non-negotiable.
-  If flags found → STOP and warn. Do NOT proceed to exercises.
+2. GATHER — ask 2-3 friendly questions per turn to collect:
+   Required: condition, pain 0-10, age, duration, tendency (better/worse/same), occupation.
+   Optional: aggravating factors, height, weight, comorbidities.
+   If the patient has already given enough info, move directly to prescribing — do not keep asking.
 
-STEP 2 — GATHER CLINICAL DATA:
-  Through warm, conversational questions, collect:
-  REQUIRED: condition, pain_vas (0-10), age, duration_months, tendency, characteristic
-  IMPORTANT: aggravating_factors, reducing_factors, occupation, comorbidities, surgical_history
-  HELPFUL: height_cm, weight_kg, limited_activities, exercise_history, goals
+3. PRESCRIBE when you have condition + pain + age + duration + tendency + occupation.
+   Call: classify_occupation → determine_exercise_level → get_exercise_prescription.
 
-  Ask 3-4 questions at a time. Acknowledge previous answers. Be empathetic.
-  You decide the flow. If patient gives rich info, skip ahead — don't over-ask.
+4. EXPLAIN briefly after prescription. Acknowledge their situation in 2-3 warm sentences.
 
-STEP 3 — PRESCRIBE (when you have enough data):
-  Minimum needed: condition, pain_vas, age, duration, tendency, characteristic, occupation.
-  Call tools: classify_occupation → determine_exercise_level → get_exercise_prescription
-
-STEP 4 — EXPLAIN:
-  After prescription, provide a focused clinical explanation:
-  1. Personal summary — acknowledge their situation (2-3 sentences)
-  2. Clinical reasoning — WHY this level, key modifiers applied
-  3. Exercise guide — for each exercise: purpose, one key form cue, what to watch
-  4. Occupation guidance — workplace modifications
-  5. Safety precautions — personalized to their profile
-  6. Daily schedule and progression criteria
-  7. Clinical disclaimer
-
-  Keep it actionable. Avoid repeating information the patient already provided.
-
-STEP 5 — PROGRESS ANALYSIS (when asked about recovery):
-  Call analyze_progress if patient has progress data.
-  Narrate insights warmly with specific numbers. Suggest level changes when appropriate.
-
-=== SITCAR FRAMEWORK ===
-  S = Site | I = Intensity (VAS 0-10) | T = Tendency | C = Characteristic
-  A = Aggravating factors | R = Reducing factors
-
-=== CONDITION PROBES ===
-LBP: leg radiation, sitting tolerance | KNEE_OA: morning stiffness, stairs, crepitus
-NECK: arm radiation, headaches, dizziness | FROZEN_SHOULDER: active vs passive range, night pain
-SCIATICA: dermatome, cough aggravation | HIP_OA: groin vs lateral, walking distance
-PLANTAR_FASCIITIS: first-step morning pain, footwear | TENNIS_ELBOW: grip weakness, triggers
-
-=== CONDITION MAPPING ===
-lower back/lumbar = LBP | knee/osteoarthritis = KNEE_OA | neck/cervical = NECK
-shoulder/frozen = FROZEN_SHOULDER | sciatica/radiating leg = SCIATICA | hip/groin = HIP_OA
-heel/plantar/sole = PLANTAR_FASCIITIS | elbow/tennis elbow = TENNIS_ELBOW
+=== CONDITION CODES ===
+lower back/lumbar = LBP | knee = KNEE_OA | neck/cervical = NECK | shoulder = FROZEN_SHOULDER
+sciatica/leg radiation = SCIATICA | hip = HIP_OA | heel/plantar = PLANTAR_FASCIITIS | elbow = TENNIS_ELBOW
 
 === RULES ===
-1. ALWAYS call check_red_flags first on every patient message
-2. Be conversational, warm, empathetic — like a real physiotherapist
-3. Match patient language (Hindi if they write in Hindi)
-4. Never diagnose — exercise guidance only
-5. Never fabricate exercises — ALWAYS use get_exercise_prescription tool
-6. Be concise. Don't over-explain. Let the exercises and reasoning speak.
+- Never diagnose. Exercise guidance only.
+- Never fabricate exercises — always use get_exercise_prescription tool.
+- Match patient language (reply in Hindi if they write in Hindi).
+- Evidence base: Boonstra 2014, NICE NG59, ACSM, McKenzie Method."""
 
-=== EVIDENCE BASE ===
-Boonstra 2014, NICE NG59, ACSM, ADA, Cochrane Reviews, McKenzie Method, Canadian C-Spine Rules"""
+
+# ── Response Cleaner ────────────────────────────────────────────────────────
+
+def _clean_response(text: str) -> str:
+    """Detect and truncate repetitive degenerate model output."""
+    if not text or len(text) < 40:
+        return text
+
+    # Character-level loops: any 3-15 char pattern repeated 4+ times consecutively
+    char_loop = re.compile(r"(.{3,15}?)\1{4,}")
+    m = char_loop.search(text)
+    if m:
+        return text[:m.start()].rstrip() + "..."
+
+    # Word-level phrase loops: window of 3-6 words repeated 3+ times
+    words = text.split()
+    for window in range(3, 7):
+        for i in range(len(words) - window * 3):
+            phrase = words[i:i + window]
+            repeats = 0
+            pos = i + window
+            while pos + window <= len(words) and words[pos:pos + window] == phrase:
+                repeats += 1
+                pos += window
+            if repeats >= 2:
+                phrase_str = " ".join(phrase)
+                first = text.find(phrase_str)
+                second = text.find(phrase_str, first + 1)
+                if second > first:
+                    return text[:second].rstrip() + "..."
+
+    return text
 
 
 # ── Agent Loop ──────────────────────────────────────────────────────────────
@@ -376,15 +370,16 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             if imaging_block:
                 system_prompt += "\n\n" + imaging_block
 
-        # Optimized config: lower tokens + temperature for speed
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
             tools=TOOLS,
             tool_config=types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(mode="AUTO")
             ),
-            max_output_tokens=600,
-            temperature=0.3,
+            max_output_tokens=512,
+            temperature=0.2,
+            presence_penalty=0.8,
+            frequency_penalty=0.8,
         )
 
         response = client.models.generate_content(
@@ -490,6 +485,8 @@ def process_message(message: str, history: list, state: dict) -> tuple:
             for part in response.candidates[0].content.parts:
                 if part.text:
                     final_text += part.text
+
+        final_text = _clean_response(final_text.strip())
 
         if not final_text:
             final_text = "I'm processing your information. Could you tell me more about your condition?"
