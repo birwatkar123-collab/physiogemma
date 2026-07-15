@@ -202,6 +202,53 @@ sciatica/leg radiation = SCIATICA | hip = HIP_OA | heel/plantar = PLANTAR_FASCII
 
 # ── Response Cleaner ────────────────────────────────────────────────────────
 
+_META_LINE = re.compile(
+    r"^\s*(\*|-|\d+\.)?\s*("
+    r"i have (the|enough|all)|i need to (ask|call|gather)|i will (ask|call|now)|"
+    r"i'll (ask|call|now|keep|use|assume)|i am going to|i'm going to|"
+    r"missing[:,]|missing (required|important|info)|the patient (provided|has|gave)|"
+    r"no red flags found\.? the patient|next,? i (will|need)|step \d|"
+    r"i can now call|i now have|now i (will|need|can)|let me (call|check|ask)"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _strip_internal_monologue(text: str) -> str:
+    """Remove leading lines of agent self-talk that Gemma leaks before the
+    patient-facing reply. Only strips from the top — once real reply text
+    starts, everything after is kept."""
+    if not text:
+        return text
+    lines = text.split("\n")
+    out = []
+    started = False
+    for ln in lines:
+        if started:
+            out.append(ln)
+            continue
+        if not ln.strip():
+            continue
+        if _META_LINE.match(ln):
+            # Meta text and real reply are sometimes glued on one line
+            # ("...short and warm.I'm sorry to hear..."). Recover the reply.
+            rest = ln
+            while True:
+                m = re.search(r"\.(?=[A-Z])", rest)
+                if not m:
+                    break
+                rest = rest[m.end():]
+                if rest.strip() and not _META_LINE.match(rest):
+                    out.append(rest)
+                    started = True
+                    break
+            continue
+        out.append(ln)
+        started = True
+    cleaned = "\n".join(out).strip()
+    return cleaned if cleaned else text
+
+
 def _clean_response(text: str) -> str:
     """Detect and truncate repetitive degenerate model output."""
     if not text or len(text) < 40:
@@ -484,7 +531,7 @@ def process_message(message: str, history: list, state: dict) -> tuple:
                 if part.text:
                     final_text += part.text
 
-        final_text = _clean_response(final_text.strip())
+        final_text = _clean_response(_strip_internal_monologue(final_text.strip()))
 
         if not final_text:
             final_text = "I'm processing your information. Could you tell me more about your condition?"
