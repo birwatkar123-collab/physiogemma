@@ -298,10 +298,20 @@ def process_message(message: str, history: list, state: dict) -> tuple:
         contents = []
         for msg in trimmed_history:
             role = "user" if msg["role"] == "user" else "model"
-            contents.append(types.Content(
-                role=role,
-                parts=[types.Part.from_text(text=msg["content"])]
-            ))
+            raw = msg["content"]
+            # Gradio 6 sends content as a list of parts; extract plain text
+            if isinstance(raw, list):
+                text = " ".join(
+                    p.get("text", "") for p in raw
+                    if isinstance(p, dict) and p.get("text")
+                )
+            else:
+                text = raw or ""
+            if text:
+                contents.append(types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=text)]
+                ))
 
         # RAG: inject relevant clinical knowledge when condition is known
         condition = state.get("collected", {}).get("condition", "")
