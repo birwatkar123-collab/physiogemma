@@ -908,44 +908,37 @@ LOADING_MESSAGES = [
 ]
 
 
-def chat_loading(message: str, history: list, state: dict | None, progress_data: dict | None,
-                 imaging_report: str = ""):
-    """Phase 1: Show user message + loading indicator immediately."""
-    if not message or not message.strip():
-        return history, state, progress_data, message
-    history = history + [{"role": "user", "content": message}]
-    loading_text = "Analyzing your condition..."
-    if imaging_report and imaging_report.strip():
-        loading_text = "Parsing imaging report & analyzing your condition..."
-    elif state and state.get("collected", {}).get("condition"):
-        loading_text = "Generating your treatment plan..."
-    history = history + [{"role": "assistant", "content": loading_text}]
-    return history, state, progress_data, message
-
-
 def chat(message: str, history: list, state: dict | None, progress_data: dict | None,
          imaging_report: str = ""):
-    """Phase 2: Process with agent and replace loading message.
+    """Single-event generator: yields loading state immediately, then the
+    final result. Replaces the old two-phase chat_loading/chat chain, whose
+    .then() steps raced on input snapshots in Gradio 5.50.
 
-    Args:
-        imaging_report: OPTIONAL radiology report text. If empty/whitespace,
-                        no imaging processing occurs (zero overhead).
+    Yields 10 outputs: chatbot, state, progress_display, profile, exercises,
+    reasoning, agent_chain, progress_state, progress_store, msg (cleared).
     """
     if not message or not message.strip():
-        return history, state, "", "", "", "", "", progress_data, serialize_progress(progress_data or {})
+        yield (history, state, gr.update(), gr.update(), gr.update(), gr.update(),
+               gr.update(), progress_data, serialize_progress(progress_data or {}), gr.update())
+        return
 
     if state is None:
         state = {"collected": {}, "reasoning_chain": [], "prescription_generated": False}
     if progress_data is None:
         progress_data = create_empty_progress()
 
-    # Remove the loading placeholder before processing
-    if history and history[-1].get("content") in (
-        "Analyzing your condition...",
-        "Parsing imaging report & analyzing your condition...",
-        "Generating your treatment plan...",
-    ):
-        history = history[:-1]
+    history = history + [{"role": "user", "content": message}]
+
+    loading_text = "Analyzing your condition..."
+    if imaging_report and imaging_report.strip():
+        loading_text = "Parsing imaging report & analyzing your condition..."
+    elif state.get("collected", {}).get("condition"):
+        loading_text = "Generating your treatment plan..."
+
+    # Immediate feedback: user message + loading bubble, clear the input box
+    yield (history + [{"role": "assistant", "content": loading_text}], state,
+           gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
+           progress_data, serialize_progress(progress_data), "")
 
     # ── OPTIONAL: Parse imaging report if provided ──────────────────────────
     # This is Mode 1 of imaging integration (text-only, no scan plates).
@@ -1009,8 +1002,8 @@ def chat(message: str, history: list, state: dict | None, progress_data: dict | 
         progress = _progress_html(state.get("collected", {}))
         full_reasoning = _format_reasoning_chain(state.get("all_reasoning", []))
 
-        return (history, state, progress, profile_md, exercises_html, explanation,
-                full_reasoning, progress_data, serialize_progress(progress_data))
+        yield (history, state, progress, profile_md, exercises_html, explanation,
+               full_reasoning, progress_data, serialize_progress(progress_data), "")
     else:
         bot_msg = result.get("text", str(result)) if isinstance(result, dict) else str(result)
         tool_names = [TOOL_LABELS.get(s["action"], s["action"]) for s in reasoning_chain if "action" in s]
@@ -1022,8 +1015,8 @@ def chat(message: str, history: list, state: dict | None, progress_data: dict | 
         progress = _progress_html(state.get("collected", {}))
         full_reasoning = _format_reasoning_chain(state.get("all_reasoning", []))
 
-        return (history, state, progress, "", "", "", full_reasoning,
-                progress_data, serialize_progress(progress_data))
+        yield (history, state, progress, gr.update(), gr.update(), gr.update(), full_reasoning,
+               progress_data, serialize_progress(progress_data), "")
 
 
 def reset():
@@ -1468,33 +1461,19 @@ Every tool call is logged in the **Reasoning Chain** for full transparency.
             js=JS_LOAD_PROGRESS,
         )
 
-        # Hidden textbox to hold message during two-phase chat
-        msg_holder = gr.Textbox(visible=False)
-
-        # Consultation chat — two-phase: loading → process
-        loading_outputs = [chatbot, consultation_state, progress_state, msg_holder]
+        # Consultation chat — single generator event: yields loading state
+        # first, then the final result (no .then() chain, no input races)
+        chat_inputs = [msg, chatbot, consultation_state, progress_state, imaging_report_box]
         chat_outputs = [chatbot, consultation_state, progress_display, profile_display,
                         exercises_display, reasoning_display, agent_chain_display,
-                        progress_state, progress_store]
+                        progress_state, progress_store, msg]
 
         send_btn.click(
-            fn=chat_loading,
-            inputs=[msg, chatbot, consultation_state, progress_state, imaging_report_box],
-            outputs=loading_outputs,
-        ).then(lambda: "", outputs=msg).then(
-            fn=chat,
-            inputs=[msg_holder, chatbot, consultation_state, progress_state, imaging_report_box],
-            outputs=chat_outputs,
+            fn=chat, inputs=chat_inputs, outputs=chat_outputs,
         ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
         msg.submit(
-            fn=chat_loading,
-            inputs=[msg, chatbot, consultation_state, progress_state, imaging_report_box],
-            outputs=loading_outputs,
-        ).then(lambda: "", outputs=msg).then(
-            fn=chat,
-            inputs=[msg_holder, chatbot, consultation_state, progress_state, imaging_report_box],
-            outputs=chat_outputs,
+            fn=chat, inputs=chat_inputs, outputs=chat_outputs,
         ).then(fn=None, js=JS_SAVE_PROGRESS, inputs=[progress_store])
 
         reset_btn.click(
